@@ -33,7 +33,7 @@ jobs:
           path: uWebSockets
           key: sub-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('submodules.txt') }}
 
-      - name: Build submodules
+      - name: Fetch submodules
         if: steps.submodules.outputs.cache-hit != 'true'
         shell: bash
         run: |
@@ -83,10 +83,14 @@ jobs:
           git clone --depth=1 --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git ./repo
           mkdir changes
           cd repo
-          git rev-parse HEAD > ../changes/source_commit
-          cp docs/index.d.ts src/uws.js ../changes
+
           git config --global user.email "diril656@gmail.com"
           git config --global user.name "Guthib-of-Dan"
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+
+          git rev-parse HEAD > ../changes/source_commit
+          cp docs/index.d.ts src/uws.js ../changes
+
       - name: Commit binaries
         run: |
 
@@ -103,6 +107,8 @@ jobs:
           ls .
           echo 'git status'
           git status
+          git config --global user.email "diril656@gmail.com"
+          git config --global user.name "Guthib-of-Dan"
           git commit -a -m "[GitHub Actions] Updated all binaries" || true
           git push origin binaries
       - name: Commit ASAN binaries

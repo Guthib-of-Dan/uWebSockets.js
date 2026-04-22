@@ -108,8 +108,6 @@ jobs:
           ls .
           echo 'git status'
           git status
-          git config --global user.email "diril656@gmail.com"
-          git config --global user.name "Guthib-of-Dan"
           git commit -a -m "[GitHub Actions] Updated all binaries" || true
           git push origin binaries
       - name: Commit ASAN binaries
@@ -121,7 +119,6 @@ jobs:
           git checkout binaries-asan
           cp ../artifacts/binaries-asan-Linux-ARM64/* .
           cp ../artifacts/binaries-asan-Linux-X64/* .
-          cp ../artifacts/binaries-asan-Windows-X64/* .
           cp ../artifacts/binaries-asan-macOS-ARM64/* .
           cp ../changes/* .
           echo '<-- [What files are in this directory?] -->'

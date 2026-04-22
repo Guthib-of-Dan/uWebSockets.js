@@ -188,58 +188,36 @@ void copy_files() {
 #if defined(IS_WINDOWS)
 /* Special case for windows */
 void build_windows(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const char *arch) {
-
+  printf("\n<-- [Building uWebSockets.js] -->\n");
   char *c_shared =
-      // includes
+      "-DWIN32_LEAN_AND_MEAN -DLIBUS_USE_LIBUV -DLIBUS_USE_QUIC "
       "-I../../uWebSockets/uSockets/lsquic/include "
       "-I../../uWebSockets/uSockets/lsquic/wincompat "
-      "-I../../uWebSockets/uSockets/boringssl/include "
-      "-I../../uWebSockets/uSockets/src "
-      //flags
-      "-DWIN32_LEAN_AND_MEAN "
-      "-DLIBUS_USE_LIBUV "
-      "-DLIBUS_USE_QUIC "
-      "-DLIBUS_USE_OPENSSL "
-      "-O3 -c "
-      // sources 
-      "../../uWebSockets/uSockets/src/*.c "
+      "-I../../uWebSockets/uSockets/boringssl/include -DLIBUS_USE_OPENSSL -O3 -c "
+      "-I../../uWebSockets/uSockets/src ../../uWebSockets/uSockets/src/*.c "
       "../../uWebSockets/uSockets/src/eventing/*.c "
       "../../uWebSockets/uSockets/src/crypto/*.c";
   char *cpp_shared =
-      // includes
-      "-I../../uWebSockets/uSockets/lsquic/include "
+      "-DWIN32_LEAN_AND_MEAN -DUWS_WITH_PROXY -DLIBUS_USE_LIBUV "
+      "-DLIBUS_USE_QUIC -I../../uWebSockets/uSockets/lsquic/include "
       "-I../../uWebSockets/uSockets/lsquic/wincompat "
-      "-I../../uWebSockets/uSockets/boringssl/include "
-      "-I../../uWebSockets/uSockets/src "
-      "-I../../uWebSockets/src "
-      //flags
-      "-DWIN32_LEAN_AND_MEAN "
-      "-DUWS_WITH_PROXY "
-      "-DLIBUS_USE_LIBUV "
-      "-DLIBUS_USE_QUIC "
-      "-DLIBUS_USE_OPENSSL "
-      "-O3 -c -std=c++20 "
-      // sources
-      "../../src/addon.cpp "
+      "-I../../uWebSockets/uSockets/boringssl/include -DLIBUS_USE_OPENSSL -O3 -c "
+      "-std=c++20 -I../../uWebSockets/uSockets/src -I../../uWebSockets/src ../../src/addon.cpp "
       "../../uWebSockets/uSockets/src/crypto/sni_tree.cpp";
 
   for (unsigned int i = 0; i < versionsQuantity; i++) {
-
-    printf("[Compile C core: NodeJS %s]", versions[i].name);
-    run("%s %s -Itargets/node-%s/include/node", compiler, c_shared, versions[i].name);
-
-    printf("[Compile uWebSockets.js: NodeJS %s]", versions[i].name);
-    run("%s %s -Itargets/node-%s/include/node", cpp_compiler, cpp_shared, versions[i].name);
-
-    printf("[Link libraries: NodeJS %s]", versions[i].name);
-    run("%s -O3 *.o uWebSockets/uSockets/boringssl/%s/ssl.lib "
-        "uWebSockets/uSockets/boringssl/%s/crypto.lib "
-        "uWebSockets/uSockets/lsquic/src/liblsquic/Debug/lsquic.lib "
-        "targets/node-%s/node.lib "
-        "-ladvapi32 -std=c++20 -shared -o "
-        "dist/uws_win32_%s_%s.node",
-        cpp_compiler, arch, arch, versions[i].name, arch, versions[i].abi);
+    // uSockets depends on libuv
+    run("cd \"tmp\\c-%s\" && %s %s -I../../targets/node-%s/include/node", versions[i].abi, compiler, c_shared,
+        versions[i].name);
+    run("cd \"tmp\\cpp-%s\" && %s %s -I../../targets/node-%s/include/node", versions[i].abi, cpp_compiler, cpp_shared,
+        versions[i].name);
+    run("%s -O3 " " ./tmp/c-%s/*.o ./tmp/cpp-%s/*.o " "./uWebSockets/uSockets/boringssl/%s/ssl.lib "
+        "./uWebSockets/uSockets/boringssl/%s/crypto.lib "
+        "./uWebSockets/uSockets/lsquic/src/liblsquic/Debug/lsquic.lib "
+        "./targets/node-%s/node.lib -ladvapi32 -std=c++20 -shared -o dist/uws_win32_%s_%s.node ", cpp_compiler, versions[i].abi, versions[i].abi,
+        arch, arch, versions[i].name, arch, versions[i].abi);
   }
+  printf("\n[Finished building uWebSockets.js]\n");
 }
 #endif
 

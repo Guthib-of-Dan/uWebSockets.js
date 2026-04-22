@@ -117,7 +117,7 @@ jobs:
 
           cd repo
           git fetch --depth=1 origin binaries-asan:binaries-asan
-          git checkout -B binaries-asan origin/binaries-asan
+          git checkout binaries-asan
           cp ../artifacts/binaries-asan-Linux-ARM64/* .
           cp ../artifacts/binaries-asan-Linux-X64/* .
           cp ../artifacts/binaries-asan-macOS-ARM64/* .

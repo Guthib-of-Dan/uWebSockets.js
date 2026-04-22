@@ -1,0 +1,10 @@
+#  --- compilation results ---
+dist
+targets
+*.o
+build.exe
+*.tar.gz
+
+# --- nodejs ----
+bun.lock
+node_modules

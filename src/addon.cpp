@@ -15,17 +15,12 @@
  * limitations under the License.
  */
 
-/* We are only allowed to depend on µWS and V8 in this layer. */
-#include "App.h"
-#include "Http3App.h"
 
 #include <iostream>
 #include <vector>
 #include <type_traits>
 
-#include <v8.h>
-using namespace v8;
-
+/* We are only allowed to depend on µWS and V8 in this layer, so Utilities.h provide everything needed */
 #include "Utilities.h"
 #include "WebSocketWrapper.h"
 #include "HttpResponseWrapper.h"
@@ -42,7 +37,7 @@ using namespace v8;
 /* This function is somewhat of a simplifying wrapper that does not follow the C++ library.
  * It takes a POST:ed body and contentType, and returns an array of parts if
  * the request is a multipart request */
-void uWS_getParts(const FunctionCallbackInfo<Value> &args) {
+void uWS_getParts(args_t args) {
 
     /* Because we mutate the strings, it is important that we get mutable input like
      * ArrayBuffer or Buffer, not String! */
@@ -59,52 +54,74 @@ void uWS_getParts(const FunctionCallbackInfo<Value> &args) {
     }
 
     uWS::MultipartParser mp(contentType.getString());
-    if (mp.isValid()) {
-        mp.setBody(body.getString());
+    if (!mp.isValid()) return; 
 
-        std::pair<std::string_view, std::string_view> headers[10];
+    mp.setBody(body.getString());
 
-        Local<Array> parts = Array::New(args.GetIsolate(), 0);
+    std::pair<std::string_view, std::string_view> headers[10];
 
-        while (true) {
-            std::optional<std::string_view> optionalPart = mp.getNextPart(headers);
-            if (!optionalPart.has_value()) {
-                break;
-            }
+    Local<Array> parts = Array::New(args.GetIsolate(), 0);
+    Local<Context> context = isolate->GetCurrentContext();
+    while (true) {
+        std::optional<std::string_view> optionalPart = mp.getNextPart(headers);
+        if (!optionalPart.has_value()) {
+            break;
+        }
 
-            std::string_view part = optionalPart.value();
+        std::string_view part = optionalPart.value();
 
-            Local<ArrayBuffer> partArrayBuffer = ArrayBuffer_NewCopy(isolate, (void *) part.data(), part.length());
-            /* Map is 30% faster in this case, but a static Object could be faster still */
-            Local<Object> partMap = Object::New(isolate);
-            partMap->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "data", NewStringType::kNormal).ToLocalChecked(), partArrayBuffer).IsNothing();
+        Local<ArrayBuffer> partArrayBuffer = ArrayBuffer_NewCopy(isolate, (void *) part.data(), part.length());
+        /* Map is 30% faster in this case, but a static Object could be faster still */
+        Local<Object> partMap = Object::New(isolate);
+        static_cast<void>(partMap->Set(
+            context,
+            String::NewFromUtf8(isolate, "data", NewStringType::kNormal, 4).ToLocalChecked(),
+            partArrayBuffer
+        ));
 
-            for (int i = 0; headers[i].first.length(); i++) {
-                /* We care about content-type and content-disposition */
-                if (headers[i].first == "content-type") {
-                    partMap->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "type", NewStringType::kNormal).ToLocalChecked(), String::NewFromUtf8(isolate, headers[i].second.data(), NewStringType::kNormal, headers[i].second.length()).ToLocalChecked()).IsNothing();
-                } else if (headers[i].first == "content-disposition") {
-                    /* Parse the parameters */
-                    uWS::ParameterParser pp(headers[i].second);
-                    while (true) {
-                        auto [key, value] = pp.getKeyValue();
-                        if (!key.length()) {
-                            break;
-                        }
+        for (int i = 0; headers[i].first.length(); i++) {
+            /* We care about content-type and content-disposition */
+            if (headers[i].first == "content-type") {
+                static_cast<void>(partMap->Set(
+                    context,
+                    String::NewFromUtf8(isolate, "type", NewStringType::kNormal, 4).ToLocalChecked(),
+                    String::NewFromUtf8(
+                        isolate,
+                        headers[i].second.data(),
+                        NewStringType::kNormal,
+                        headers[i].second.length()
+                    ).ToLocalChecked()
+                ));
+            } else if (headers[i].first == "content-disposition") {
+                /* Parse the parameters */
+                uWS::ParameterParser pp(headers[i].second);
+                while (true) {
+                    auto [key, value] = pp.getKeyValue();
+                    if (!key.length()) {
+                        break;
+                    }
 
-                        // really anything that has both key and value and is not type or data?
-                        if (key == "name" || key == "filename") {
-                            partMap->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, key.data(), NewStringType::kNormal, key.length()).ToLocalChecked(), String::NewFromUtf8(isolate, value.data(), NewStringType::kNormal, value.length()).ToLocalChecked()).IsNothing();
-                        }
+                    // really anything that has both key and value and is not type or data?
+                    if (key == "name" || key == "filename") {
+                        static_cast<void>(partMap->Set(
+                            context,
+                            String::NewFromUtf8(isolate, key.data(), NewStringType::kNormal, key.length()).ToLocalChecked(),
+                            String::NewFromUtf8(
+                                isolate,
+                                value.data(),
+                                NewStringType::kNormal,
+                                value.length()
+                            ).ToLocalChecked()
+                        ));
                     }
                 }
             }
-
-            parts->Set(isolate->GetCurrentContext(), parts->Length(), partMap).IsNothing();
         }
 
-        args.GetReturnValue().Set(parts);
+        static_cast<void>(parts->Set(context, parts->Length(), partMap));
     }
+
+    args.GetReturnValue().Set(parts);
 
     /* We'll return undefined on error */
 }
@@ -115,7 +132,7 @@ void uWS_getParts(const FunctionCallbackInfo<Value> &args) {
 
 //UniquePersistent<Function> timerCallbacksJS[1000];
 
-void uWS_arm(const FunctionCallbackInfo<Value> &args) {
+void uWS_arm(args_t args) {
 
     /* integer */
 
@@ -125,7 +142,7 @@ void uWS_arm(const FunctionCallbackInfo<Value> &args) {
     //unsigned int timer = setTimeout_(nullptr, 1000);
 }
 
-void uWS_setTimeout(const FunctionCallbackInfo<Value> &args) {
+void uWS_setTimeout(args_t args) {
 
     /* Function, integer */
 
@@ -136,7 +153,7 @@ void uWS_setTimeout(const FunctionCallbackInfo<Value> &args) {
     //args.GetReturnValue().Set(Integer::New(args.GetIsolate(), timer));
 }
 
-void uWS_clearTimeout(const FunctionCallbackInfo<Value> &args) {
+void uWS_clearTimeout(args_t args) {
 
     /* Integer */
 
@@ -148,7 +165,7 @@ void uWS_clearTimeout(const FunctionCallbackInfo<Value> &args) {
 }
 
 /* Pass various undocumented configs */
-void uWS_cfg(const FunctionCallbackInfo<Value> &args) {
+void uWS_cfg(args_t args) {
     NativeString key(args.GetIsolate(), args[0]);
     if (key.isInvalid(args)) {
         return;
@@ -161,14 +178,18 @@ void uWS_cfg(const FunctionCallbackInfo<Value> &args) {
 }
 
 /* todo: Put this function and all inits of it in its own header */
-void uWS_us_listen_socket_close(const FunctionCallbackInfo<Value> &args) {
+void uWS_us_listen_socket_close(args_t args) {
     // this should take int ssl first
-    us_listen_socket_close(0, (struct us_listen_socket_t *) External::Cast(*args[0])->Value());
+    us_listen_socket_close(0, static_cast<struct us_listen_socket_t *>(
+          External::Cast(*args[0])->Value() 
+    ));
 }
 
-void uWS_us_socket_local_port(const FunctionCallbackInfo<Value> &args) {
+void uWS_us_socket_local_port(args_t args) {
     // this should take int ssl first, but us_socket_local_port doesn't use it so it doesn't matter
-    int port = us_socket_local_port(0, (struct us_socket_t *) External::Cast(*args[0])->Value());
+    int port = us_socket_local_port(0, static_cast<struct us_socket_t *>(
+          External::Cast(*args[0])->Value())
+    );
     args.GetReturnValue().Set(Integer::New(args.GetIsolate(), port));
 }
 
@@ -182,7 +203,7 @@ std::unordered_map<std::string, std::unordered_map<std::string, uint32_t>> kvSto
 std::mutex kvMutex;
 
 // getString(key, collection)
-void uWS_getString(const FunctionCallbackInfo<Value> &args) {
+void uWS_getString(args_t args) {
     NativeString key(args.GetIsolate(), args[0]);
     if (key.isInvalid(args)) {
         return;
@@ -198,7 +219,7 @@ void uWS_getString(const FunctionCallbackInfo<Value> &args) {
     args.GetReturnValue().Set(String::NewFromUtf8(args.GetIsolate(), value.data(), NewStringType::kNormal, value.length()).ToLocalChecked());
 }
 
-void uWS_setString(const FunctionCallbackInfo<Value> &args) {
+void uWS_setString(args_t args) {
     NativeString key(args.GetIsolate(), args[0]);
     if (key.isInvalid(args)) {
         return;
@@ -216,7 +237,7 @@ void uWS_setString(const FunctionCallbackInfo<Value> &args) {
     kvStoreString[std::string(collection.getString())][std::string(key.getString())] = value.getString();
 }
 
-void uWS_getInteger(const FunctionCallbackInfo<Value> &args) {
+void uWS_getInteger(args_t args) {
     NativeString key(args.GetIsolate(), args[0]);
     if (key.isInvalid(args)) {
         return;
@@ -232,7 +253,7 @@ void uWS_getInteger(const FunctionCallbackInfo<Value> &args) {
     args.GetReturnValue().Set(Integer::New(args.GetIsolate(), value));
 }
 
-void uWS_setInteger(const FunctionCallbackInfo<Value> &args) {
+void uWS_setInteger(args_t args) {
     NativeString key(args.GetIsolate(), args[0]);
     if (key.isInvalid(args)) {
         return;
@@ -248,7 +269,7 @@ void uWS_setInteger(const FunctionCallbackInfo<Value> &args) {
     kvStoreInteger[std::string(collection.getString())][std::string(key.getString())] = value;
 }
 
-void uWS_incInteger(const FunctionCallbackInfo<Value> &args) {
+void uWS_incInteger(args_t args) {
     NativeString key(args.GetIsolate(), args[0]);
     if (key.isInvalid(args)) {
         return;
@@ -267,7 +288,7 @@ void uWS_incInteger(const FunctionCallbackInfo<Value> &args) {
 }
 
 /* This one will spike memory usage for large stores */
-void uWS_getStringKeys(const FunctionCallbackInfo<Value> &args) {
+void uWS_getStringKeys(args_t args) {
 
     NativeString collection(args.GetIsolate(), args[0]);
     if (collection.isInvalid(args)) {
@@ -285,7 +306,7 @@ void uWS_getStringKeys(const FunctionCallbackInfo<Value> &args) {
     args.GetReturnValue().Set(stringKeys);
 }
 
-void uWS_getIntegerKeys(const FunctionCallbackInfo<Value> &args) {
+void uWS_getIntegerKeys(args_t args) {
 
     NativeString collection(args.GetIsolate(), args[0]);
     if (collection.isInvalid(args)) {
@@ -303,7 +324,7 @@ void uWS_getIntegerKeys(const FunctionCallbackInfo<Value> &args) {
     args.GetReturnValue().Set(integerKeys);
 }
 
-void uWS_deleteString(const FunctionCallbackInfo<Value> &args) {
+void uWS_deleteString(args_t args) {
 
     NativeString key(args.GetIsolate(), args[0]);
     if (key.isInvalid(args)) {
@@ -320,7 +341,7 @@ void uWS_deleteString(const FunctionCallbackInfo<Value> &args) {
     //args.GetReturnValue().Set(Integer::New(args.GetIsolate(), value));
 }
 
-void uWS_deleteInteger(const FunctionCallbackInfo<Value> &args) {
+void uWS_deleteInteger(args_t args) {
 
     NativeString key(args.GetIsolate(), args[0]);
     if (key.isInvalid(args)) {
@@ -337,7 +358,7 @@ void uWS_deleteInteger(const FunctionCallbackInfo<Value> &args) {
     //args.GetReturnValue().Set(Integer::New(args.GetIsolate(), value));
 }
 
-void uWS_deleteStringCollection(const FunctionCallbackInfo<Value> &args) {
+void uWS_deleteStringCollection(args_t args) {
 
     NativeString collection(args.GetIsolate(), args[0]);
     if (collection.isInvalid(args)) {
@@ -349,7 +370,7 @@ void uWS_deleteStringCollection(const FunctionCallbackInfo<Value> &args) {
     //args.GetReturnValue().Set(integerKeys);
 }
 
-void uWS_deleteIntegerCollection(const FunctionCallbackInfo<Value> &args) {
+void uWS_deleteIntegerCollection(args_t args) {
 
     NativeString collection(args.GetIsolate(), args[0]);
     if (collection.isInvalid(args)) {
@@ -361,94 +382,117 @@ void uWS_deleteIntegerCollection(const FunctionCallbackInfo<Value> &args) {
     //args.GetReturnValue().Set(integerKeys);
 }
 
-void uWS_lock(const FunctionCallbackInfo<Value> &args) {
+void uWS_lock(args_t args) {
     kvMutex.lock();
 }
 
-void uWS_unlock(const FunctionCallbackInfo<Value> &args) {
+void uWS_unlock(args_t args) {
     kvMutex.unlock();
 }
 
-PerContextData *Main(Local<Object> exports) {
+PerIsolateData *Main(Local<Object> exports) {
 
     /* We pass isolate everywhere */
     Isolate *isolate = exports->GetIsolate();
-
+    Local<Context> context = isolate->GetCurrentContext();
     /* Init the template objects, SSL and non-SSL, store it in per context data */
-    PerContextData *perContextData = new PerContextData;
-    perContextData->isolate = isolate;
-    perContextData->reqTemplate[0].Reset(isolate, HttpRequestWrapper::init<false>(isolate));
-    perContextData->reqTemplate[1].Reset(isolate, HttpRequestWrapper::init<true>(isolate));
-    perContextData->resTemplate[0].Reset(isolate, HttpResponseWrapper::init<0>(isolate));
-    perContextData->resTemplate[1].Reset(isolate, HttpResponseWrapper::init<1>(isolate));
-    perContextData->resTemplate[2].Reset(isolate, HttpResponseWrapper::init<2>(isolate));
-    perContextData->resTemplate[3].Reset(isolate, HttpResponseWrapper::init<3>(isolate));
-    perContextData->wsTemplate[0].Reset(isolate, WebSocketWrapper::init<0>(isolate));
-    perContextData->wsTemplate[1].Reset(isolate, WebSocketWrapper::init<1>(isolate));
+    PerIsolateData *perIsolateData = new PerIsolateData;
+    perIsolateData->isolate = isolate;
+    perIsolateData->reqTemplate[0].Reset(isolate, HttpRequestWrapper::init<OPTIONS::ENUM::TCP>(isolate));
+    perIsolateData->reqTemplate[1].Reset(isolate, HttpRequestWrapper::init<OPTIONS::ENUM::QUIC>(isolate));
+    perIsolateData->resTemplate[0].Reset(isolate, HttpResponseWrapper::init<OPTIONS::ENUM::TCP>(isolate));
+    perIsolateData->resTemplate[1].Reset(isolate, HttpResponseWrapper::init<OPTIONS::ENUM::SSL>(isolate));
+    perIsolateData->resTemplate[2].Reset(isolate, HttpResponseWrapper::init<OPTIONS::ENUM::QUIC>(isolate));
+    perIsolateData->resTemplate[3].Reset(isolate, HttpResponseWrapper::init<OPTIONS::ENUM::CACHE>(isolate));
+    perIsolateData->wsTemplate[0].Reset(isolate, WebSocketWrapper::init<OPTIONS::ENUM::TCP>(isolate));
+    perIsolateData->wsTemplate[1].Reset(isolate, WebSocketWrapper::init<OPTIONS::ENUM::SSL>(isolate));
 
     /* Refer to per context data via External */
-    Local<External> externalPerContextData = External::New(isolate, perContextData);
+    Local<External> externalPerContextData = External::New(isolate, perIsolateData);
+
+    /* Helpers to write almost NOTHING manually */
+    auto regFn = [=]<size_t N>(
+      const char (&str)[N],
+      void(*cb)(args_t)
+    ){
+      exports->Set(
+        context,
+        String::NewFromUtf8(isolate, str, NewStringType::kNormal, N-1).ToLocalChecked(),
+        FunctionTemplate::New(isolate, cb, externalPerContextData)->GetFunction(context).ToLocalChecked()
+      ).ToChecked();
+    };
+    auto regNum = [=]<size_t N>(
+      const char (&str)[N],
+      uint32_t number
+    ){
+      exports->Set(
+        context,
+        String::NewFromUtf8(isolate, str, NewStringType::kNormal, N-1).ToLocalChecked(),
+        Integer::NewFromUnsigned(isolate, number)
+      ).ToChecked();
+    };
 
     /* uWS namespace */
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "App", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_App<uWS::App>, externalPerContextData)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "SSLApp", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_App<uWS::SSLApp>, externalPerContextData)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-
+    regFn("App", uWS_App<uWS::App>);
+    regFn("SSLApp", uWS_App<uWS::SSLApp>);
+    
     /* H3 experimental */
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "H3App", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_App<uWS::H3App>, externalPerContextData)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
+    regFn("H3App", uWS_App<uWS::H3App>);
 
     /* Temporary KV store */
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "getString", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_getString)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "setString", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_setString)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "getInteger", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_getInteger)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "setInteger", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_setInteger)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "incInteger", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_incInteger)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "lock", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_lock)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "unlock", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_unlock)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "getIntegerKeys", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_getIntegerKeys)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "getStringKeys", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_getStringKeys)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "deleteString", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_deleteString)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "deleteInteger", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_deleteInteger)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "deleteStringCollection", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_deleteStringCollection)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "deleteIntegerCollection", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_deleteIntegerCollection)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
+    
+    regFn("getString",  uWS_getString);
+    regFn("setString",  uWS_setString);
+    regFn("getInteger",  uWS_getInteger);
+    regFn("setInteger",  uWS_setInteger);
+    regFn("incInteger",  uWS_incInteger);
+    regFn("lock",  uWS_lock);
+    regFn("unlock",  uWS_unlock);
+    regFn("getIntegerKeys",  uWS_getIntegerKeys);
+    regFn("getStringKeys",  uWS_getStringKeys);
+    regFn("deleteString",  uWS_deleteString);
+    regFn("deleteInteger",  uWS_deleteInteger);
+    regFn("deleteStringCollection",  uWS_deleteStringCollection);
+    regFn("deleteIntegerCollection",  uWS_deleteIntegerCollection);
 
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "setTimeout", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_setTimeout)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "clearTimeout", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_clearTimeout)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "arm", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_arm)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
+    regFn("setTimeout",  uWS_setTimeout);
+    regFn("clearTimeout",  uWS_clearTimeout);
+    regFn("arm",  uWS_arm);
 
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "_cfg", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_cfg)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "getParts", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_getParts)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
+    regFn("_cfg",  uWS_cfg);
+    regFn("getParts",  uWS_getParts);
     
     /* Expose some µSockets functions directly under uWS namespace */
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "us_listen_socket_close", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_us_listen_socket_close)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "us_socket_local_port", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, uWS_us_socket_local_port)->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()).ToChecked();
+    regFn("us_listen_socket_close",  uWS_us_listen_socket_close);
+    regFn("us_socket_local_port",  uWS_us_socket_local_port);
 
     /* Compression enum */
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DISABLED", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DISABLED)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "SHARED_COMPRESSOR", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::SHARED_COMPRESSOR)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "SHARED_DECOMPRESSOR", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::SHARED_DECOMPRESSOR)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_DECOMPRESSOR", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_DECOMPRESSOR)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_COMPRESSOR", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_COMPRESSOR)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_COMPRESSOR_3KB", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_COMPRESSOR_3KB)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_COMPRESSOR_4KB", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_COMPRESSOR_4KB)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_COMPRESSOR_8KB", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_COMPRESSOR_8KB)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_COMPRESSOR_16KB", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_COMPRESSOR_16KB)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_COMPRESSOR_32KB", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_COMPRESSOR_32KB)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_COMPRESSOR_64KB", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_COMPRESSOR_64KB)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_COMPRESSOR_128KB", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_COMPRESSOR_128KB)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_COMPRESSOR_256KB", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_COMPRESSOR_256KB)).ToChecked();
+    regNum("DISABLED", uWS::DISABLED);
+    regNum("SHARED_COMPRESSOR", uWS::SHARED_COMPRESSOR);
+    regNum("SHARED_DECOMPRESSOR", uWS::SHARED_DECOMPRESSOR);
+    regNum("DEDICATED_DECOMPRESSOR", uWS::DEDICATED_DECOMPRESSOR);
+    regNum("DEDICATED_COMPRESSOR", uWS::DEDICATED_COMPRESSOR);
+    regNum("DEDICATED_COMPRESSOR_3KB", uWS::DEDICATED_COMPRESSOR_3KB);
+    regNum("DEDICATED_COMPRESSOR_4KB", uWS::DEDICATED_COMPRESSOR_4KB);
+    regNum("DEDICATED_COMPRESSOR_8KB", uWS::DEDICATED_COMPRESSOR_8KB);
+    regNum("DEDICATED_COMPRESSOR_16KB", uWS::DEDICATED_COMPRESSOR_16KB);
+    regNum("DEDICATED_COMPRESSOR_32KB", uWS::DEDICATED_COMPRESSOR_32KB);
+    regNum("DEDICATED_COMPRESSOR_64KB", uWS::DEDICATED_COMPRESSOR_64KB);
+    regNum("DEDICATED_COMPRESSOR_128KB", uWS::DEDICATED_COMPRESSOR_128KB);
+    regNum("DEDICATED_COMPRESSOR_256KB", uWS::DEDICATED_COMPRESSOR_256KB);
 
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_DECOMPRESSOR_32KB", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_DECOMPRESSOR_32KB)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_DECOMPRESSOR_16KB", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_DECOMPRESSOR_16KB)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_DECOMPRESSOR_8KB", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_DECOMPRESSOR_8KB)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_DECOMPRESSOR_4KB", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_DECOMPRESSOR_4KB)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_DECOMPRESSOR_2KB", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_DECOMPRESSOR_2KB)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_DECOMPRESSOR_1KB", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_DECOMPRESSOR_1KB)).ToChecked();
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "DEDICATED_DECOMPRESSOR_512B", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, uWS::DEDICATED_DECOMPRESSOR_512B)).ToChecked();
+    regNum("DEDICATED_DECOMPRESSOR_32KB", uWS::DEDICATED_DECOMPRESSOR_32KB);
+    regNum("DEDICATED_DECOMPRESSOR_16KB", uWS::DEDICATED_DECOMPRESSOR_16KB);
+    regNum("DEDICATED_DECOMPRESSOR_8KB", uWS::DEDICATED_DECOMPRESSOR_8KB);
+    regNum("DEDICATED_DECOMPRESSOR_4KB", uWS::DEDICATED_DECOMPRESSOR_4KB);
+    regNum("DEDICATED_DECOMPRESSOR_2KB", uWS::DEDICATED_DECOMPRESSOR_2KB);
+    regNum("DEDICATED_DECOMPRESSOR_1KB", uWS::DEDICATED_DECOMPRESSOR_1KB);
+    regNum("DEDICATED_DECOMPRESSOR_512B", uWS::DEDICATED_DECOMPRESSOR_512B);
 
     /* Listen options */
-    exports->Set(isolate->GetCurrentContext(), String::NewFromUtf8(isolate, "LIBUS_LISTEN_EXCLUSIVE_PORT", NewStringType::kNormal).ToLocalChecked(), Integer::NewFromUnsigned(isolate, LIBUS_LISTEN_EXCLUSIVE_PORT)).ToChecked();
+    regNum("LIBUS_LISTEN_EXCLUSIVE_PORT", LIBUS_LISTEN_EXCLUSIVE_PORT);
 
-    return perContextData;
+    return perIsolateData;
 }
 
 /* This is required when building as a Node.js addon */
@@ -459,22 +503,22 @@ NODE_MODULE_INITIALIZER(Local<Object> exports, Local<Value> module, Local<Contex
     /* Integrate uSockets with existing libuv loop */
     uWS::Loop::get(node::GetCurrentEventLoop(context->GetIsolate()));
     /* Register vanilla V8 addon */
-    PerContextData *perContextData = Main(exports);
+    PerIsolateData *perIsolateData = Main(exports);
 
     /* We cannot rely on process.exit or process.beforeExit when it comes to WorkerThreads */
     node::AddEnvironmentCleanupHook(context->GetIsolate(), [](void *arg) {
 
-        PerContextData *perContextData = (PerContextData *) arg;
+        PerIsolateData *perIsolateData = (PerIsolateData *) arg;
 
         /* Freeing apps here, it could be done earlier but not sooner */
-        perContextData->apps.clear();
-        perContextData->sslApps.clear();
+        perIsolateData->apps.clear();
+        perIsolateData->sslApps.clear();
         /* Freeing the loop here means we give time for our timers to close, etc */
         uWS::Loop::get()->free();
 
         /* We can safely delete this since we no longer can call uWS.free */
-        delete perContextData;
+        delete perIsolateData;
 
-    }, perContextData);
+    }, perIsolateData);
 }
 #endif

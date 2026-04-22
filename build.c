@@ -1,93 +1,72 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <string.h>
+#include "build-conf.h"
+void nodejs_headers(const char *version) {
+  run("curl -sSL \"https://nodejs.org/dist/%s/node-%s-headers.tar.gz\" -o "
+      "tmp/node-%s-headers.tar.gz"
+      " && "
+      "tar xzf tmp/node-%s-headers.tar.gz -C targets",
+      version, version, version, version);
+  run(
+      /*fetch v8 fast-api manually*/
+      "curl -sSfL "
+      "\"https://raw.githubusercontent.com/nodejs/node/%s/deps/v8/include/"
+      "v8-fast-api-calls.h\" -o "
+      "\"targets/node-%s/include/node/v8-fast-api-calls.h\"",
+      version, version);
 
-/* List of platform features */
-#ifdef _WIN32
-#define OS "win32"
-#define IS_WINDOWS
+#ifdef IS_WINDOWS // fetch node.lib
+  run("curl -sSL \"https://nodejs.org/dist/%s/win-x64/node.lib\" -o "
+      "\"targets/node-%s/node.lib\"",
+      version, version);
 #endif
-#ifdef __linux
-#define OS "linux"
-#define IS_LINUX
-#endif
-#ifdef __APPLE__
-#define OS "darwin"
-#define IS_MACOS
-#endif
-
-/* ASAN vs. optimized build flags (used via C string literal concatenation).
- * OPT_FLAGS / LINK_FLAGS: inserted mid-string, so each definition starts with a space.
- * LINUX_LINK_EXTRAS: passed as a standalone argument, so no leading space.
- * MACOS_LINK_EXTRAS: appended after "-undefined dynamic_lookup", so ASAN variant starts with a space. */
-#ifdef WITH_ASAN
-#define OPT_FLAGS " -fsanitize=address -fno-omit-frame-pointer -g -O1"
-#define LINK_FLAGS " -fsanitize=address"
-#define LINUX_LINK_EXTRAS "-fsanitize=address"
-#define MACOS_LINK_EXTRAS " -fsanitize=address"
-#else
-#define OPT_FLAGS " -flto -O3"
-#define LINK_FLAGS " -flto -O3"
-#define LINUX_LINK_EXTRAS "-static-libstdc++ -static-libgcc -s"
-#define MACOS_LINK_EXTRAS ""
-#endif
-
-const char *ARM = "arm";
-const char *ARM64 = "arm64";
-const char *X64 = "x64";
-
-/* System, but with string replace */
-int run(const char *cmd, ...) {
-    char buf[2048];
-    va_list args;
-    va_start(args, cmd);
-    vsprintf(buf, cmd, args);
-    va_end(args);
-    printf("--> %s\n\n", buf);
-    return system(buf);
 }
-
-/* List of Node.js versions */
-struct node_version {
-    char *name;
-    char *abi;
-} versions[] = {
-    {"v24.0.0", "137"},
-    {"v20.0.0", "115"},
-    {"v22.0.0", "127"},
-    {"v25.0.0", "141"}
-};
 
 /* Downloads headers, creates folders */
 void prepare() {
-    if (run("mkdir dist") || run("mkdir targets")) {
-        return;
+    // see console output IMMEDIATELY for debugging purposes
+    setbuf(stdout, 0);
+    run("mkdir tmp");
+    run("mkdir dist");
+    for (unsigned int i = 0; i < versionsQuantity; i++) {
+      run("mkdir \"tmp/c-%s\"", versions[i].abi);
+      run("mkdir \"tmp/cpp-%s\"", versions[i].abi);
+    }
+    if (run("mkdir targets")) {
+      printf("[NodeJS headers are already installed (v20,v22,v24,v25)]\n");
+      return ;
     }
 
-    /* For all versions */
-    for (unsigned int i = 0; i < sizeof(versions) / sizeof(struct node_version); i++) {
-        run("curl -OJ https://nodejs.org/dist/%s/node-%s-headers.tar.gz", versions[i].name, versions[i].name);
-        run("tar xzf node-%s-headers.tar.gz -C targets", versions[i].name);
-        run("curl https://nodejs.org/dist/%s/win-x64/node.lib > targets/node-%s/node.lib", versions[i].name, versions[i].name);
-        /* v8-fast-api-calls.h is missing from the Node.js header distribution; fetch the correct major version from the Node.js source tree */
-        run("curl -fL https://raw.githubusercontent.com/nodejs/node/%s/deps/v8/include/v8-fast-api-calls.h > targets/node-%s/include/node/v8-fast-api-calls.h", versions[i].name, versions[i].name);
+    printf("\n<-- [Installing NodeJS headers] -->\n");
+    for (unsigned char i = 0; i < versionsQuantity; i++) {
+      nodejs_headers(versions[i].name);
     }
+    printf("[Fetched NodeJS headers v20,v22,v24,v25]\n");
 }
 
 void build_lsquic(const char *arch) {
+  printf("\n<-- [Started building lsquic: %s] -->\n", arch);
 #ifndef IS_WINDOWS
     /* Build for arm64 and x64 for macOS */
 
 #ifdef IS_MACOS
     if (arch == X64) {
-        run("cd uWebSockets/uSockets/lsquic && mkdir -p arm64 && cd arm64 && cmake -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_OSX_ARCHITECTURES=arm64 -DBORINGSSL_DIR=../boringssl -DCMAKE_BUILD_TYPE=Release -DLSQUIC_BIN=Off .. && make lsquic");
+      run("cd uWebSockets/uSockets/lsquic && mkdir -p arm64 && cd arm64 && "
+          "cmake -DCMAKE_POSITION_INDEPENDENT_CODE=ON "
+          "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 "
+          "-DCMAKE_OSX_ARCHITECTURES=arm64 -DBORINGSSL_DIR=../boringssl "
+          "-DCMAKE_BUILD_TYPE=Release -DLSQUIC_BIN=Off .. && make -j%i lsquic", threads_quantity);
     } else if (arch == ARM64) {
-        run("cd uWebSockets/uSockets/lsquic && mkdir -p x64 && cd x64 && cmake -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_OSX_ARCHITECTURES=x86_64 -DBORINGSSL_DIR=../boringssl -DCMAKE_BUILD_TYPE=Release -DLSQUIC_BIN=Off .. && make lsquic");
+      run("cd uWebSockets/uSockets/lsquic && mkdir -p x64 && cd x64 && cmake "
+          "-DCMAKE_POSITION_INDEPENDENT_CODE=ON "
+          "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 "
+          "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DBORINGSSL_DIR=../boringssl "
+          "-DCMAKE_BUILD_TYPE=Release -DLSQUIC_BIN=Off .. && make -j%i lsquic", threads_quantity);
     }
 #else
     /* Linux */
-    run("cd uWebSockets/uSockets/lsquic && mkdir -p %s && cd %s && cmake -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBORINGSSL_DIR=../boringssl -DCMAKE_BUILD_TYPE=Release -DLSQUIC_BIN=Off .. && make lsquic", arch, arch);
+    run("cd uWebSockets/uSockets/lsquic && mkdir -p %s && cd %s && cmake "
+        "-DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBORINGSSL_DIR=../boringssl "
+        "-DCMAKE_BUILD_TYPE=Release -DLSQUIC_BIN=Off .. && make -j%i lsquic",
+        arch, arch, threads_quantity);
 
 #endif
     
@@ -97,49 +76,106 @@ void build_lsquic(const char *arch) {
     /* Windows */
 
     /* Download zlib */
-    run("curl -OL https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz");
+    run("curl -sSOL https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz");
     run("tar xzf zlib-1.3.1.tar.gz");
-    
-    run("cd uWebSockets/uSockets/lsquic && cmake -DCMAKE_C_FLAGS=\"/Wv:18 /DWIN32 /wd4201 /I..\\..\\..\\zlib-1.3.1\" -DZLIB_INCLUDE_DIR=..\\..\\..\\zlib-1.3.1 -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DBORINGSSL_DIR=../boringssl -DCMAKE_BUILD_TYPE=Release -DLSQUIC_BIN=Off . && msbuild ALL_BUILD.vcxproj");
+
+    run("cd uWebSockets/uSockets/lsquic && cmake "
+        "-DCMAKE_C_FLAGS=\"/Wv:18 /DWIN32 /wd4201 /I..\\..\\..\\zlib-1.3.1\" "
+        "-DZLIB_INCLUDE_DIR=..\\..\\..\\zlib-1.3.1 "
+        "-DCMAKE_POSITION_INDEPENDENT_CODE=ON "
+        "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_C_COMPILER=clang "
+        "-DCMAKE_CXX_COMPILER=clang++ -DBORINGSSL_DIR=../boringssl "
+        "-DCMAKE_BUILD_TYPE=Release -DLSQUIC_BIN=Off . "
+        " && msbuild ALL_BUILD.vcxproj /m:%i", threads_quantity);
 #endif
+  printf("\n[Finished building lsquic: %s]\n", arch);
 }
 
 /* Build boringssl */
 void build_boringssl(const char *arch) {
-
+  printf("\n<-- [Started building boringssl: %s] -->\n", arch);
 #ifdef IS_MACOS
     /* Only macOS uses cross-compilation */
     if (arch == X64) {
-        run("cd uWebSockets/uSockets/boringssl && mkdir -p x64 && cd x64 && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 .. && make crypto ssl");
+      run("cd uWebSockets/uSockets/boringssl && mkdir -p x64 && cd x64 && "
+          "cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 "
+          "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 "
+          ".. && make -j%i crypto ssl", threads_quantity);
     } else if (arch == ARM64) {
-        run("cd uWebSockets/uSockets/boringssl && mkdir -p arm64 && cd arm64 && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 .. && make crypto ssl");
+      run("cd uWebSockets/uSockets/boringssl && mkdir -p arm64 && cd arm64 && "
+          "cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 .. "
+          "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 "
+          "&& make -j%i crypto ssl", threads_quantity);
     }
 #endif
     
 #ifdef IS_LINUX
     /* Build for x64 or arm/arm64 (depending on the host) */
-    run("cd uWebSockets/uSockets/boringssl && mkdir -p %s && cd %s && cmake -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release .. && make crypto ssl", arch, arch);
+    run("cd uWebSockets/uSockets/boringssl && mkdir -p %s && cd %s &&"
+        " cmake "
+        "-DCMAKE_POSITION_INDEPENDENT_CODE=ON "
+        "-DCMAKE_BUILD_TYPE=Release .. && "
+        "make -j%i crypto ssl",
+        arch, arch, threads_quantity);
 #endif
     
 #ifdef IS_WINDOWS
     /* Build for x64 (the host) */
-    run("cd uWebSockets/uSockets/boringssl && mkdir -p x64 && cd x64 && cmake -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -GNinja .. && ninja crypto ssl");
+    run("cd uWebSockets/uSockets/boringssl && mkdir -p x64 && cd x64 && "
+        "cmake "
+        "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_C_COMPILER=clang "
+        "-DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -GNinja .. && "
+        "ninja -j%i crypto ssl", threads_quantity);
 #endif
-
+  printf("\n[Finished building boringssl: %s]\n", arch);
 }
 
+#if !defined(IS_WINDOWS)
 /* Build for Unix systems */
 void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const char *arch) {
+  printf("\n<-- [Started building uWebSockets.js: %s] -->\n", arch);
+  char *c_shared =
+      "-DWIN32_LEAN_AND_MEAN -DLIBUS_USE_LIBUV -DLIBUS_USE_QUIC "
+      " -I ../../uWebSockets/uSockets/lsquic/include "
+      " -I ../../uWebSockets/uSockets/boringssl/include -pthread "
+      " -DLIBUS_USE_OPENSSL" OPT_FLAGS
+      " -c -fPIC -I ../../uWebSockets/uSockets/src "
+      " ../../uWebSockets/uSockets/src/*.c "
+      " ../../uWebSockets/uSockets/src/eventing/*.c "
+      " ../../uWebSockets/uSockets/src/crypto/*.c";
+  char *cpp_shared =
+      "-DWIN32_LEAN_AND_MEAN -DUWS_WITH_PROXY -DLIBUS_USE_LIBUV "
+      " -DLIBUS_USE_QUIC -I ../../uWebSockets/uSockets/boringssl/include "
+      " -pthread "
+      " -DLIBUS_USE_OPENSSL" OPT_FLAGS
+      " -c -fPIC -std=c++20 -I ../../uWebSockets/uSockets/src"
+      " -I ../../uWebSockets/src"
+      " ../../src/addon.cpp ../../uWebSockets/uSockets/src/crypto/sni_tree.cpp";
 
-    char *c_shared = "-DWIN32_LEAN_AND_MEAN -DLIBUS_USE_LIBUV -DLIBUS_USE_QUIC -I uWebSockets/uSockets/lsquic/include -I uWebSockets/uSockets/boringssl/include -pthread -DLIBUS_USE_OPENSSL" OPT_FLAGS " -c -fPIC -I uWebSockets/uSockets/src uWebSockets/uSockets/src/*.c uWebSockets/uSockets/src/eventing/*.c uWebSockets/uSockets/src/crypto/*.c";
-    char *cpp_shared = "-DWIN32_LEAN_AND_MEAN -DUWS_WITH_PROXY -DLIBUS_USE_LIBUV -DLIBUS_USE_QUIC -I uWebSockets/uSockets/boringssl/include -pthread -DLIBUS_USE_OPENSSL" OPT_FLAGS " -c -fPIC -std=c++20 -I uWebSockets/uSockets/src -I uWebSockets/src src/addon.cpp uWebSockets/uSockets/src/crypto/sni_tree.cpp";
-
-    for (unsigned int i = 0; i < sizeof(versions) / sizeof(struct node_version); i++) {
-        run("%s %s -I targets/node-%s/include/node", compiler, c_shared, versions[i].name);
-        run("%s %s -I targets/node-%s/include/node", cpp_compiler, cpp_shared, versions[i].name);
-        run("%s -pthread" LINK_FLAGS " *.o uWebSockets/uSockets/boringssl/%s/libssl.a uWebSockets/uSockets/boringssl/%s/libcrypto.a uWebSockets/uSockets/lsquic/%s/src/liblsquic/liblsquic.a -std=c++20 -shared %s -o dist/uws_%s_%s_%s.node", cpp_compiler, arch, arch, arch, cpp_linker, os, arch, versions[i].abi);
+  pid_t pids[versionsQuantity];
+  for (unsigned int i = 0; i < versionsQuantity; i++) {
+    // NodeJS versions ~ 4 and GitHub Actions provide 4 threads
+    pids[i] = fork();
+    if (pids[i] == 0) {
+      // different abi = no race condition in parallel
+      run("cd tmp/c-%s && %s %s -I ../../targets/node-%s/include/node",
+          versions[i].abi, compiler, c_shared, versions[i].name);
+      run("cd tmp/cpp-%s && %s %s -I ../../targets/node-%s/include/node",
+          versions[i].abi, cpp_compiler, cpp_shared, versions[i].name);
+      run("%s -pthread" LINK_FLAGS " tmp/c-%s/*.o tmp/cpp-%s/*.o "
+          "uWebSockets/uSockets/boringssl/%s/libssl.a "
+          "uWebSockets/uSockets/boringssl/%s/libcrypto.a "
+          "uWebSockets/uSockets/lsquic/%s/src/liblsquic/liblsquic.a "
+          "-std=c++20 -shared %s -o dist/uws_%s_%s_%s.node",
+          cpp_compiler, versions[i].abi, versions[i].abi, arch, arch, arch,
+          cpp_linker, os, arch, versions[i].abi);
+      exit(0);
     }
+  }
+  for (unsigned int i = 0; i < versionsQuantity; i++) waitpid(pids[i], 0, 0);
+  printf("\n[Finished building uWebSockets.js: %s]\n", arch);
 }
+#endif
 
 void copy_files() {
 #ifdef IS_WINDOWS
@@ -149,20 +185,68 @@ void copy_files() {
 #endif
 }
 
+#if defined(IS_WINDOWS)
 /* Special case for windows */
 void build_windows(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const char *arch) {
 
-    char *c_shared = "-DWIN32_LEAN_AND_MEAN -DLIBUS_USE_LIBUV -DLIBUS_USE_QUIC -IuWebSockets/uSockets/lsquic/include -IuWebSockets/uSockets/lsquic/wincompat -IuWebSockets/uSockets/boringssl/include -DLIBUS_USE_OPENSSL -O3 -c -IuWebSockets/uSockets/src uWebSockets/uSockets/src/*.c uWebSockets/uSockets/src/eventing/*.c uWebSockets/uSockets/src/crypto/*.c";
-    char *cpp_shared = "-DWIN32_LEAN_AND_MEAN -DUWS_WITH_PROXY -DLIBUS_USE_LIBUV -DLIBUS_USE_QUIC -IuWebSockets/uSockets/lsquic/include -IuWebSockets/uSockets/lsquic/wincompat -IuWebSockets/uSockets/boringssl/include -DLIBUS_USE_OPENSSL -O3 -c -std=c++20 -IuWebSockets/uSockets/src -IuWebSockets/src src/addon.cpp uWebSockets/uSockets/src/crypto/sni_tree.cpp";
+  char *c_shared =
+      // includes
+      "-I../../uWebSockets/uSockets/lsquic/include "
+      "-I../../uWebSockets/uSockets/lsquic/wincompat "
+      "-I../../uWebSockets/uSockets/boringssl/include "
+      "-I../../uWebSockets/uSockets/src "
+      //flags
+      "-DWIN32_LEAN_AND_MEAN "
+      "-DLIBUS_USE_LIBUV "
+      "-DLIBUS_USE_QUIC "
+      "-DLIBUS_USE_OPENSSL "
+      "-O3 -c "
+      // sources 
+      "../../uWebSockets/uSockets/src/*.c "
+      "../../uWebSockets/uSockets/src/eventing/*.c "
+      "../../uWebSockets/uSockets/src/crypto/*.c";
+  char *cpp_shared =
+      // includes
+      "-I../../uWebSockets/uSockets/lsquic/include "
+      "-I../../uWebSockets/uSockets/lsquic/wincompat "
+      "-I../../uWebSockets/uSockets/boringssl/include "
+      "-I../../uWebSockets/uSockets/src "
+      "-I../../uWebSockets/src "
+      //flags
+      "-DWIN32_LEAN_AND_MEAN "
+      "-DUWS_WITH_PROXY "
+      "-DLIBUS_USE_LIBUV "
+      "-DLIBUS_USE_QUIC "
+      "-DLIBUS_USE_OPENSSL "
+      "-O3 -c -std=c++20 "
+      // sources
+      "../../src/addon.cpp "
+      "../../uWebSockets/uSockets/src/crypto/sni_tree.cpp";
 
-    for (unsigned int i = 0; i < sizeof(versions) / sizeof(struct node_version); i++) {
-        run("%s %s -Itargets/node-%s/include/node", compiler, c_shared, versions[i].name);
-        run("%s %s -Itargets/node-%s/include/node", cpp_compiler, cpp_shared, versions[i].name);
-        run("%s -O3 *.o uWebSockets/uSockets/boringssl/%s/ssl.lib uWebSockets/uSockets/boringssl/%s/crypto.lib uWebSockets/uSockets/lsquic/src/liblsquic/Debug/lsquic.lib targets/node-%s/node.lib -ladvapi32 -std=c++20 -shared -o dist/uws_win32_%s_%s.node", cpp_compiler, arch, arch, versions[i].name, arch, versions[i].abi);
-    }
+  for (unsigned int i = 0; i < versionsQuantity; i++) {
+
+    printf("[Compile C core: NodeJS %s]", versions[i].name);
+    run("%s %s -Itargets/node-%s/include/node", compiler, c_shared, versions[i].name);
+
+    printf("[Compile uWebSockets.js: NodeJS %s]", versions[i].name);
+    run("%s %s -Itargets/node-%s/include/node", cpp_compiler, cpp_shared, versions[i].name);
+
+    printf("[Link libraries: NodeJS %s]", versions[i].name);
+    run("%s -O3 *.o uWebSockets/uSockets/boringssl/%s/ssl.lib "
+        "uWebSockets/uSockets/boringssl/%s/crypto.lib "
+        "uWebSockets/uSockets/lsquic/src/liblsquic/Debug/lsquic.lib "
+        "targets/node-%s/node.lib "
+        "-ladvapi32 -std=c++20 -shared -o "
+        "dist/uws_win32_%s_%s.node",
+        cpp_compiler, arch, arch, versions[i].name, arch, versions[i].abi);
+  }
 }
+#endif
 
 int main() {
+    threads_quantity = get_cpu_count();
+    printf("<-- ENTRY POINT!!! -->\n[Parallel threads available: %i]\n", threads_quantity);
+
     printf("[Preparing]\n");
     prepare();
     printf("\n[Building]\n");

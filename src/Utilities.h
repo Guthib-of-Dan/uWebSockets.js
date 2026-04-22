@@ -1,28 +1,34 @@
-/*
- * Authored by Alex Hultman, 2018-2026.
- * Intellectual property of third-party.
-
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
-
- *     http://www.apache.org/licenses/LICENSE-2.0
-
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 
 #ifndef ADDON_UTILITIES_H
 #define ADDON_UTILITIES_H
 
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
+
+// this header file contains utilities and is used almost everywhere, so let it be central header-file
+#include "App.h"
+#include "Http3App.h"
+
 #include <v8.h>
 using namespace v8;
 
+// helper to make life easier
+using args_t = const FunctionCallbackInfo<Value>&;
+
+// These enums constraint "template" params for functions. 
+namespace OPTIONS {
+  enum class ENUM : uint32_t {
+    TCP, SSL, QUIC, CACHE 
+  };
+  template <ENUM Option>
+  constexpr void IS_TCP_OR_QUIC() {
+    static_assert(Option == ENUM::TCP || Option == ENUM::QUIC, "Given option is neither TCP nor QUIC");
+  }
+  template <ENUM Option> 
+  constexpr void IS_TCP_OR_SSL() {
+    static_assert(Option == ENUM::TCP || Option == ENUM::SSL, "Given option is neither TCP nor SSL");
+  }
+}
 /* Unfortunately we _have_ to depend on Node.js crap */
 #include <node.h>
 
@@ -48,41 +54,46 @@ Local<v8::ArrayBuffer> ArrayBuffer_NewCopy(Isolate *isolate, void *data, size_t 
     return ab;
 }
 
+
+/* uWebSockets requires a struct as "userData" for WebSockets -> here it is */
 struct PerSocketData {
-    UniquePersistent<Object> socketPf;
+    Global<Object> socketPf;
 };
 
-struct PerContextData {
+/** 
+ *  Global struct that is generated once per Isolate (V8 instance for one thread). 
+ *  Ergonomic because of automatical destruction of Global<> properties
+ * */
+struct PerIsolateData {
     Isolate *isolate;
-    UniquePersistent<Object> reqTemplate[2]; // 0 = non-SSL/SSL, 1 = Http3
-    UniquePersistent<Object> resTemplate[4]; // 0 = non-SSL, 1 = SSL, 2 = Http3
-    UniquePersistent<Object> wsTemplate[2];
+
+    Global<Object> reqTemplate[2]; // 0 = non-SSL/SSL, 1 = Http3
+    Global<Object> resTemplate[4]; // 0 = non-SSL, 1 = SSL, 2 = Http3
+    Global<Object> wsTemplate[2];
 
     /* We hold all apps until free */
     std::vector<std::unique_ptr<uWS::App>> apps;
     std::vector<std::unique_ptr<uWS::SSLApp>> sslApps;
 };
 
+/* just a getter method for PROTOCOLS enum, based on the APP instance */
 template <class APP>
-static constexpr int getAppTypeIndex() {
-    /* Returns 1 for SSLApp and 0 for App */
+static constexpr uint32_t getAppTypeIndex() {
     //return std::is_same<APP, uWS::SSLApp>::value;
 
-    /* Returns 2 for H3App */
-
     if constexpr (std::is_same<APP, uWS::App>::value) {
-        return 0;
+        return static_cast<uint32_t>(OPTIONS::ENUM::TCP);
     } else if constexpr (std::is_same<APP, uWS::SSLApp>::value) {
-        return 1;
+        return static_cast<uint32_t>(OPTIONS::ENUM::SSL);
     } else if constexpr (std::is_same<APP, uWS::H3App>::value) {
-        return 2;
+        return static_cast<uint32_t>(OPTIONS::ENUM::QUIC);
     } else {
         // why does this fail?
         //static_assert(false);
     }
 }
 
-static inline bool missingArguments(int length, const FunctionCallbackInfo<Value> &args) {
+static inline bool missingArguments(int length, args_t args) {
     if (args.Length() < length) {
         std::string message = "Function requires at least ";
         message += std::to_string(length);
@@ -95,7 +106,7 @@ static inline bool missingArguments(int length, const FunctionCallbackInfo<Value
 
 struct Callback {
     bool invalid = false;
-    UniquePersistent<Function> f;
+    Global<Function> f;
     Callback(Isolate *isolate, const Local<Value> &value) {
 
         if (!value->IsFunction()) {
@@ -106,14 +117,14 @@ struct Callback {
         f.Reset(isolate, Local<Function>::Cast(value));
     }
 
-    bool isInvalid(const FunctionCallbackInfo<Value> &args) {
+    bool isInvalid(args_t args) {
         if (invalid) {
             args.GetReturnValue().Set(args.GetIsolate()->ThrowException(v8::Exception::Error(String::NewFromUtf8(args.GetIsolate(), "Passed callback is not a valid function.", NewStringType::kNormal).ToLocalChecked())));
         }
         return invalid;
     }
 
-    UniquePersistent<Function> &&getFunction() {
+    Global<Function> &&getFunction() {
         return std::move(f);
     }
 };
@@ -205,7 +216,7 @@ public:
         }
     }
 
-    bool isInvalid(const FunctionCallbackInfo<Value> &args) {
+    bool isInvalid(args_t args) {
         if (invalid) {
             args.GetReturnValue().Set(args.GetIsolate()->ThrowException(v8::Exception::Error(String::NewFromUtf8(args.GetIsolate(), "Text and data can only be passed by String, ArrayBuffer or TypedArray.", NewStringType::kNormal).ToLocalChecked())));
         }

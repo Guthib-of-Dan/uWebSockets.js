@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-#include "App.h"
 #include "Utilities.h"
 
-#include <v8.h>
-using namespace v8;
 
 /* This one is the same for SSL and non-SSL */
-struct HttpRequestWrapper {
+namespace HttpRequestWrapper {
 
     /* Unwraps the HttpRequest from V8 object */
-    template <int QUIC>
-    static inline constexpr decltype(auto) getHttpRequest(const FunctionCallbackInfo<Value> &args) {
+    template <OPTIONS::ENUM Option>
+    inline constexpr decltype(auto) getHttpRequest(args_t args) {
+        OPTIONS::IS_TCP_OR_QUIC<Option>();
         Isolate *isolate = args.GetIsolate();
         /* Thow on deleted request */
         auto *req = (uWS::HttpRequest *) args.This()->GetAlignedPointerFromInternalField(0);
@@ -34,7 +32,7 @@ struct HttpRequestWrapper {
             args.GetReturnValue().Set(isolate->ThrowException(v8::Exception::Error(String::NewFromUtf8(isolate, "uWS.HttpRequest must not be accessed after await or route handler return. See documentation for uWS.HttpRequest and consult the user manual.", NewStringType::kNormal).ToLocalChecked())));
         }
 
-        if constexpr (QUIC) {
+        if constexpr (Option == OPTIONS::ENUM::QUIC) {
             return (uWS::Http3Request *) req;
         } else {
             return req;
@@ -42,63 +40,69 @@ struct HttpRequestWrapper {
     }
 
     /* Takes function of string, string. Returns this (doesn't really but should) */
-    template <int QUIC>
-    static void req_forEach(const FunctionCallbackInfo<Value> &args) {
+    template <OPTIONS::ENUM Option>
+    void req_forEach(args_t args) {
+        OPTIONS::IS_TCP_OR_QUIC<Option>();
         Isolate *isolate = args.GetIsolate();
-        auto *req = getHttpRequest<QUIC>(args);
-        if (req) {
-            Local<Function> cb = Local<Function>::Cast(args[0]);
+        auto *req = getHttpRequest<Option>(args);
+        if (!req) return;
 
-            for (auto p : *req) {
-                Local<Value> argv[] = {String::NewFromUtf8(isolate, p.first.data(), NewStringType::kNormal, p.first.length()).ToLocalChecked(),
-                                       String::NewFromUtf8(isolate, p.second.data(), NewStringType::kNormal, p.second.length()).ToLocalChecked()};
-                /* This one is also called from JS so no need for CallJS */
-                cb->Call(isolate->GetCurrentContext(), isolate->GetCurrentContext()->Global(), 2, argv).IsEmpty();
-            }
+        Local<Function> cb = Local<Function>::Cast(args[0]);
+        Local<Context> context = isolate->GetCurrentContext();
+        Local<Object> GlobalThis = context->Global();
+        for (auto p : *req) {
+            Local<Value> argv[] = {
+              String::NewFromUtf8(isolate, p.first.data(), NewStringType::kNormal, p.first.length()).ToLocalChecked(),
+              String::NewFromUtf8(isolate, p.second.data(), NewStringType::kNormal, p.second.length()).ToLocalChecked()
+            };
+            /* This one is also called from JS so no need for CallJS */
+            static_cast<void>(cb->Call(context, GlobalThis, 2, argv));
         }
     }
 
     /* Takes int or string, returns string (must be in bounds) */
-    template <int QUIC>
-    static void req_getParameter(const FunctionCallbackInfo<Value> &args) {
+    template <OPTIONS::ENUM Option>
+    void req_getParameter(args_t args) {
+        OPTIONS::IS_TCP_OR_QUIC<Option>();
         Isolate *isolate = args.GetIsolate();
-        auto *req = getHttpRequest<QUIC>(args);
-        if (req) {
+        auto *req = getHttpRequest<Option>(args);
+        if (!req) return;
 
-            /* Either an integer index or string name */
-            std::string_view parameter;
-            if (args[0]->IsNumber()) {
-                int index = args[0]->Uint32Value(isolate->GetCurrentContext()).ToChecked();
-                parameter = req->getParameter(index);
-            } else {
-                NativeString<true> data(args.GetIsolate(), args[0]);
-                if (data.isInvalid(args)) {
-                    return;
-                }
-                parameter = req->getParameter(data.getString());
+        /* Either an integer index or string name */
+        std::string_view parameter;
+        if (args[0]->IsNumber()) {
+            int index = args[0]->Uint32Value(isolate->GetCurrentContext()).ToChecked();
+            parameter = req->getParameter(index);
+        } else {
+            NativeString<true> data(args.GetIsolate(), args[0]);
+            if (data.isInvalid(args)) {
+                return;
             }
-
-            args.GetReturnValue().Set(String::NewFromUtf8(isolate, parameter.data(), NewStringType::kNormal, parameter.length()).ToLocalChecked());
+            parameter = req->getParameter(data.getString());
         }
+
+        args.GetReturnValue().Set(String::NewFromUtf8(isolate, parameter.data(), NewStringType::kNormal, parameter.length()).ToLocalChecked());
     }
 
     /* Takes nothing, returns string */
-    template <int QUIC>
-    static void req_getUrl(const FunctionCallbackInfo<Value> &args) {
+    template <OPTIONS::ENUM Option>
+    void req_getUrl(args_t args) {
+        OPTIONS::IS_TCP_OR_QUIC<Option>();
         Isolate *isolate = args.GetIsolate();
-        auto *req = getHttpRequest<QUIC>(args);
-        if (req) {
-            std::string_view url = req->getUrl();
+        auto *req = getHttpRequest<Option>(args);
+        if (!req) return;
 
-            args.GetReturnValue().Set(String::NewFromUtf8(isolate, url.data(), NewStringType::kNormal, url.length()).ToLocalChecked());
-        }
+        std::string_view url = req->getUrl();
+
+        args.GetReturnValue().Set(String::NewFromUtf8(isolate, url.data(), NewStringType::kNormal, url.length()).ToLocalChecked());
     }
 
     /* Takes String, returns String */
-    template <int QUIC>
-    static void req_getHeader(const FunctionCallbackInfo<Value> &args) {
+    template <OPTIONS::ENUM Option>
+    void req_getHeader(args_t args) {
+        OPTIONS::IS_TCP_OR_QUIC<Option>();
         Isolate *isolate = args.GetIsolate();
-        auto *req = getHttpRequest<QUIC>(args);
+        auto *req = getHttpRequest<Option>(args);
         if (req) {
             NativeString<true> data(args.GetIsolate(), args[0]);
             if (data.isInvalid(args)) {
@@ -113,10 +117,11 @@ struct HttpRequestWrapper {
     }
 
     /* Takes boolean, returns this */
-    template <int QUIC>
-    static void req_setYield(const FunctionCallbackInfo<Value> &args) {
+    template <OPTIONS::ENUM Option>
+    void req_setYield(args_t args) {
+        OPTIONS::IS_TCP_OR_QUIC<Option>();
         Isolate *isolate = args.GetIsolate();
-        auto *req = getHttpRequest<QUIC>(args);
+        auto *req = getHttpRequest<Option>(args);
         if (req) {
             bool yield = args[0]->BooleanValue(isolate);
             req->setYield(yield);
@@ -126,10 +131,11 @@ struct HttpRequestWrapper {
     }
 
     /* Takes nothing, returns string */
-    template <int QUIC>
-    static void req_getMethod(const FunctionCallbackInfo<Value> &args) {
+    template <OPTIONS::ENUM Option>
+    void req_getMethod(args_t args) {
+        OPTIONS::IS_TCP_OR_QUIC<Option>();
         Isolate *isolate = args.GetIsolate();
-        auto *req = getHttpRequest<QUIC>(args);
+        auto *req = getHttpRequest<Option>(args);
         if (req) {
             std::string_view method = req->getMethod();
 
@@ -138,10 +144,11 @@ struct HttpRequestWrapper {
     }
 
     /* Takes nothing, returns string */
-    template <int QUIC>
-    static void req_getCaseSensitiveMethod(const FunctionCallbackInfo<Value> &args) {
+    template <OPTIONS::ENUM Option>
+    void req_getCaseSensitiveMethod(args_t args) {
+        OPTIONS::IS_TCP_OR_QUIC<Option>();
         Isolate *isolate = args.GetIsolate();
-        auto *req = getHttpRequest<QUIC>(args);
+        auto *req = getHttpRequest<Option>(args);
         if (req) {
             std::string_view method = req->getCaseSensitiveMethod();
 
@@ -149,10 +156,11 @@ struct HttpRequestWrapper {
         }
     }
 
-    template <int QUIC>
-    static void req_getQuery(const FunctionCallbackInfo<Value> &args) {
+    template <OPTIONS::ENUM Option>
+    void req_getQuery(args_t args) {
+        OPTIONS::IS_TCP_OR_QUIC<Option>();
         Isolate *isolate = args.GetIsolate();
-        auto *req = getHttpRequest<QUIC>(args);
+        auto *req = getHttpRequest<Option>(args);
         if (req) {
             std::string_view query;
 
@@ -178,29 +186,42 @@ struct HttpRequestWrapper {
     }
 
     /* Returns a clonable object wrapping an HttpRequest */
-    template <int QUIC>
-    static Local<Object> init(Isolate *isolate) {
+    template <OPTIONS::ENUM Option>
+    Local<Object> init(Isolate *isolate) {
+        OPTIONS::IS_TCP_OR_QUIC<Option>();
         /* We do clone every request object, we could share them, they are illegal to use outside the function anyways */
         Local<FunctionTemplate> reqTemplateLocal = FunctionTemplate::New(isolate);
-        reqTemplateLocal->SetClassName(String::NewFromUtf8(isolate, QUIC ? "uWS.Http3Request" : "uWS.HttpRequest", NewStringType::kNormal).ToLocalChecked());
+        reqTemplateLocal->SetClassName(String::NewFromUtf8(isolate, Option == OPTIONS::ENUM::QUIC ? "uWS.Http3Request" : "uWS.HttpRequest", NewStringType::kNormal).ToLocalChecked());
         reqTemplateLocal->InstanceTemplate()->SetInternalFieldCount(1);
 
+        /* helper */
+          auto regFn = [reqTemplateObject = reqTemplateLocal->PrototypeTemplate(), isolate]<size_t N>(
+            const char (&str)[N],
+            void(*cb)(args_t)
+          ){
+            reqTemplateObject->Set(
+              String::NewFromUtf8(isolate, str, NewStringType::kNormal, N-1).ToLocalChecked(),
+              FunctionTemplate::New(isolate, cb)
+            );
+          };
+
         /* Register our functions */
-        reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "getHeader", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, req_getHeader<QUIC>));
+        regFn("getHeader", req_getHeader<Option>);
         
-        if constexpr (!QUIC) {
-            reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "getParameter", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, req_getParameter<QUIC>));
-            reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "getUrl", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, req_getUrl<QUIC>));
-            reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "getMethod", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, req_getMethod<QUIC>));
-            reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "getCaseSensitiveMethod", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, req_getCaseSensitiveMethod<QUIC>));
-            reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "getQuery", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, req_getQuery<QUIC>));
-            reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "forEach", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, req_forEach<QUIC>));
-            reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "setYield", NewStringType::kNormal).ToLocalChecked(), FunctionTemplate::New(isolate, req_setYield<QUIC>));
+        if constexpr (Option == OPTIONS::ENUM::TCP) {
+          regFn("getParameter", req_getParameter<Option>);
+          regFn("getUrl", req_getUrl<Option>);
+          regFn("getMethod", req_getMethod<Option>);
+          regFn("getCaseSensitiveMethod", req_getCaseSensitiveMethod<Option>);
+          regFn("getQuery", req_getQuery<Option>);
+          regFn("forEach", req_forEach<Option>);
+          regFn("setYield", req_setYield<Option>);
         }
 
 
         /* Create the template */
-        Local<Object> reqObjectLocal = reqTemplateLocal->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()->NewInstance(isolate->GetCurrentContext()).ToLocalChecked();
+        Local<Context> context = isolate->GetCurrentContext();
+        Local<Object> reqObjectLocal = reqTemplateLocal->GetFunction(context).ToLocalChecked()->NewInstance(context).ToLocalChecked();
 
         return reqObjectLocal;
     }

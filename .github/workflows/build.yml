@@ -37,7 +37,9 @@ jobs:
         if: steps.submodules.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          git submodule update --init --recursive
+
+          # only latest states
+          git submodule update --init --recursive --depth 1
 
       - name: Compile binaries 
         run: |

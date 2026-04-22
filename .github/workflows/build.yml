@@ -113,10 +113,9 @@ jobs:
       - name: Commit ASAN binaries
         run: |
 
-          # On first run, binaries-asan doesn't exist yet; seed it from binaries so git history is preserved
           cd repo
           git fetch --depth=1 origin binaries:binaries-asan
-          git checkout binaries-asan
+          git checkout -B binaries-asan origin/binaries-asan
           cp ../artifacts/binaries-asan-Linux-ARM64/* .
           cp ../artifacts/binaries-asan-Linux-X64/* .
           cp ../artifacts/binaries-asan-macOS-ARM64/* .

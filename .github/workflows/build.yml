@@ -46,7 +46,13 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: binaries-${{ runner.os }}-${{ runner.arch }}
-          path: dist/*.node
+          path: dist/*${{ runner.arch }}*.node
+      - name: Save results for MacOS x64
+        if: runner.os == 'macos-15'
+        uses: actions/upload-artifact@v7
+        with:
+          name: binaries-${{ runner.os }}-x64
+          path: dist/*arm64*.node
 
       - name: Compile ASAN binaries
         if: matrix.os != 'windows-latest'
@@ -68,7 +74,7 @@ jobs:
       matrix:
         # macos-15 is arm64, but for x64 "rosetta" can be used as an emulator
         os: [windows-latest, macos-15, ubuntu-24.04, ubuntu-24.04-arm]
-        node: ['20.0.0', '22.0.0', '24.0.0', '25.0.0']
+        node: [20, 22, 24, 25]
 
     runs-on: ${{ matrix.os }}
     steps:

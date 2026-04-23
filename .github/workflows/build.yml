@@ -4,17 +4,30 @@ on:
     branches: [ master-draft ]
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-15, ubuntu-24.04, ubuntu-24.04-arm]
+        include:
+          - runner: windows-latest
+            os: win32
+            arch: x64
+          - runner: macos-15
+            os: darwin
+            arch: arm64
+          - runner: ubuntu-24.04
+            os: linux
+            arch: x64
+          - runner: ubuntu-24.04-arm
+            os: linux
+            arch: arm64 
+
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Setup Windows
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == win32
         uses: ilammy/msvc-dev-cmd@v1
       - name: Setup NASM for Windows
-        if: matrix.os == 'windows-latest'
+        if: matrix.ps == win32
         uses: ilammy/setup-nasm@v1.2.1
       
       - name: Export submodules.txt as a state for cached dependencies
@@ -27,7 +40,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: uWebSockets
-          key: sub-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('submodules.txt') }}
+          key: sub-${{ matrix.os }}-${{ matrix.arch }}-${{ hashFiles('submodules.txt') }}
 
       - name: Fetch submodules
         if: steps.submodules.outputs.cache-hit != 'true'
@@ -39,44 +52,58 @@ jobs:
 
       - name: Compile binaries 
         run: |
-          ${{ matrix.os == 'windows-latest' && 'nmake' || 'make' }}
+          ${{ matrix.os == win32 && nmake || make }}
           ls dist
 
       - name: Save results
         uses: actions/upload-artifact@v7
         with:
-          name: binaries-${{ runner.os }}-${{ runner.arch }}
+          name: binaries-${{ matrix.os }}-${{ matrix.arch }}
           path: dist/*${{ runner.arch }}*.node
+
       - name: Save results for MacOS x64
-        if: runner.os == 'macos-15'
+        if: matrix.runner == 'macos-15'
         uses: actions/upload-artifact@v7
         with:
           name: binaries-${{ runner.os }}-x64
           path: dist/*arm64*.node
 
       - name: Compile ASAN binaries
-        if: matrix.os != 'windows-latest'
+        if: matrix.os != win32
         run: |
 
           rm dist/*.node
           make prebuilt-asan
           ls dist
       - name: Save ASAN Binaries
-        if: matrix.os != 'windows-latest'
+        if: matrix.os != win32
         uses: actions/upload-artifact@v7
         with:
-          name: binaries-asan-${{ runner.os }}-${{ runner.arch }}
+          name: binaries-asan-${{ matrix.os }}-${{ matrix.arch }}
           path: dist/*.node
   test: 
     needs: build
     strategy:
       fail-fast: false
       matrix:
-        # macos-15 is arm64, but for x64 "rosetta" can be used as an emulator
-        os: [windows-latest, macos-15, ubuntu-24.04, ubuntu-24.04-arm]
         node: [20, 22, 24, 25]
+        include:
+          - runner: windows-latest
+            os: win32
+            arch: x64
+          # macos-15 is arm64, but for x64 "rosetta" can be used as an emulator
+          - runner: macos-15
+            os: darwin
+            arch: arm64
+          - runner: ubuntu-24.04
+            os: linux
+            arch: x64
+          - runner: ubuntu-24.04-arm
+            os: linux
+            arch: arm64 
 
-    runs-on: ${{ matrix.os }}
+
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/setup-node@v6
         with:
@@ -87,17 +114,13 @@ jobs:
       - name: install binaries
         uses: actions/download-artifact@v8
         with: 
-          name: binaries-${{ runner.os }}-${{ runner.arch }}
+          name: binaries-${{ matrix.os }}-${{ matrix.arch }}
           path: dist
       - run: |
           mv src/uws.js dist
           mv docs/index.d.ts dist
       - run: npm install ws && cd tests && node smoke.js
         
-
-
-
-
   publish:
     if: github.ref_type == 'tag'
     permissions:

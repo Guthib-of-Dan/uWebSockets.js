@@ -65,7 +65,7 @@ jobs:
         if: matrix.runner == 'macos-15'
         uses: actions/upload-artifact@v7
         with:
-          name: binaries-${{ runner.os }}-x64
+          name: binaries-${{ matrix.os }}-x64
           path: dist/*arm64*.node
 
       - name: Compile ASAN binaries

@@ -4,7 +4,9 @@ targets
 *.o
 build.exe
 *.tar.gz
+compile_commands.json
 
-# --- nodejs ----
+# --- nodejs ---
 bun.lock
+package-lock.json
 node_modules

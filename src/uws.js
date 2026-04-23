@@ -14,14 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+const VERSION = "v20.65.0"
 
 module.exports = (() => {
 	try {
-		return require('./uws_' + process.platform + '_' + process.arch + '_' + process.versions.modules + '.node');
+		return require(binaries_dir + '/uws_' + process.platform + '_' + process.arch + '_' + process.versions.modules + '.node');
 	} catch (e) {
-		throw new Error('This version of uWS.js (v20.60.0) supports only Node.js versions 20, 22, 24 and 25 on (glibc) Linux, macOS and Windows, on Tier 1 platforms (https://github.com/nodejs/node/blob/master/BUILDING.md#platform-list).\n\n' + e.toString());
+		throw new Error('This version of uWS.js (' + VERSION + ') supports only Node.js versions 20, 22, 24 and 25 on (glibc) Linux, macOS and Windows, on Tier 1 platforms (https://github.com/nodejs/node/blob/master/BUILDING.md#platform-list).\n\n' + e.toString());
 	}
 })();
+
+
 
 const MAX_U8 = Math.pow(2, 8) - 1;
 const MAX_U16 = Math.pow(2, 16) - 1;
@@ -38,12 +41,8 @@ const toUint8Array = (value) => {
   else if (value instanceof SharedArrayBuffer) return new Uint8Array(value);
   else return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
 };
-
 module.exports.DeclarativeResponse = class DeclarativeResponse {
-  constructor() {
-    this.instructions = [];
-  }
-
+   instructions = [];
   // Append instruction and 1-byte length values
   _appendInstruction(opcode, ...values) {
     this.instructions.push(opcode);
@@ -60,7 +59,7 @@ module.exports.DeclarativeResponse = class DeclarativeResponse {
     if (uint8Array.byteLength > MAX_U16) throw new RangeError('Data length exceeds '+ MAX_U16);
     this.instructions.push(opcode, uint8Array.byteLength & 0xff, (uint8Array.byteLength >> 8) & 0xff, ...uint8Array);
   }
-
+  writeHeaders(headers) { for (var key in headers) this.writeHeader(key, headers[key]); return this;}
   writeHeader(key, value) { return this._appendInstruction(1, key, value), this; }
   writeBody() { return this.instructions.push(2), this; }
   writeQueryValue(key) { return this._appendInstruction(3, key), this; }
@@ -74,3 +73,4 @@ module.exports.DeclarativeResponse = class DeclarativeResponse {
     return new Uint8Array(this.instructions).buffer;
   }
 }
+

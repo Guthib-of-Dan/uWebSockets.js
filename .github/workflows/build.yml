@@ -59,7 +59,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: binaries-${{ matrix.os }}-${{ matrix.arch }}
-          path: dist/*${{ runner.arch }}*.node
+          path: dist/*${{ matrix.arch }}*.node
 
       - name: Save results for MacOS x64
         if: matrix.runner == 'macos-15'

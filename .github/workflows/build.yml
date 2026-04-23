@@ -86,7 +86,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [20, 22, 24, 25]
         include:
           - runner: windows-latest
             os: win32
@@ -101,6 +100,7 @@ jobs:
           - runner: ubuntu-24.04-arm
             os: linux
             arch: arm64 
+        node: [20, 22, 24, 25]
 
 
     runs-on: ${{ matrix.runner }}

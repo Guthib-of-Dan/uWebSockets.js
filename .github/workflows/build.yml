@@ -52,7 +52,7 @@ jobs:
 
       - name: Compile binaries 
         run: |
-          ${{ matrix.os == win32 && nmake || make }}
+          ${{ matrix.os == 'win32' && 'nmake' || 'make' }}
           ls dist
 
       - name: Save results

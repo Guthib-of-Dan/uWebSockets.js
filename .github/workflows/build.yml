@@ -209,6 +209,6 @@ jobs:
           # this is done BEFORE GitHub Release
           #sed -i "s/\"version\".*/\"version\":\ \"${{ github.ref_name }}\",/" package.json
           #sed -i "s/\"version\".*/\"version\":\ \"20.66.0\",/" uws.js
-          
-          git commit -a -m "Updated commit version" || true
+          git add .
+          git commit -m "Updated commit version" || true
           git push origin public

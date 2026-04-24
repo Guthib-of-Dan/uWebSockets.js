@@ -18,7 +18,7 @@ const VERSION = "v20.65.0"
 
 module.exports = (() => {
 	try {
-		return require(binaries_dir + '/uws_' + process.platform + '_' + process.arch + '_' + process.versions.modules + '.node');
+		return require('./uws_' + process.platform + '_' + process.arch + '_' + process.versions.modules + '.node');
 	} catch (e) {
 		throw new Error('This version of uWS.js (' + VERSION + ') supports only Node.js versions 20, 22, 24 and 25 on (glibc) Linux, macOS and Windows, on Tier 1 platforms (https://github.com/nodejs/node/blob/master/BUILDING.md#platform-list).\n\n' + e.toString());
 	}

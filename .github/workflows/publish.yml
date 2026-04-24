@@ -1,0 +1,17 @@
+name: Publish 
+on:
+  release:
+    branches: [ public ]
+jobs:
+  publish:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    needs: test 
+    steps:
+      - name: a
+        run: |
+          git clone --depth=1 --branch binaries https://github.com/${{ github.repository }}.git ./repo
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: *.node

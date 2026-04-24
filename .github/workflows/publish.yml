@@ -4,10 +4,7 @@ on:
     branches: [ public ]
 jobs:
   publish:
-    permissions:
-      contents: write
     runs-on: ubuntu-latest
-    needs: test 
     steps:
       - name: Fetch binaries
         run: |

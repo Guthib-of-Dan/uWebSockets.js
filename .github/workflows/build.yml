@@ -67,7 +67,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: binaries-${{ matrix.os }}-x64
-          path: dist/*arm64*.node
+          path: dist/*x64*.node
 
       - name: Compile ASAN binaries
         if: matrix.os != 'win32'
@@ -81,7 +81,14 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: binaries-asan-${{ matrix.os }}-${{ matrix.arch }}
-          path: dist/*.node
+          path: dist/*${{ matrix.arch }}*.node
+      - name: Save ASAN Binaries for MacOS x64
+        if: matrix.runner == 'macos-15'
+        uses: actions/upload-artifact@v7
+        with:
+          name: binaries-asan-${{ matrix.os }}-x64
+          path: dist/*x64*.node
+
   test: 
     needs: build
     strategy:

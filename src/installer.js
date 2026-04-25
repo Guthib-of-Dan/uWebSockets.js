@@ -1,6 +1,6 @@
 // https://github.com/<owner>/<repo>/releases/download/<tag>/<filename>
 var repo = "Guthib-of-Dan/uWebSockets.js"
-var tag = "v01.01.1900"
+var tag = "v01.01.1901"
 
 module.exports = async function downloadBinary(paramTag = tag, paramFilename = 'uws_' + process.platform + '_' + process.arch + '_' + process.versions.modules + '.node') {
 

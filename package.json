@@ -1,6 +1,6 @@
 {
   "name": "uWebSockets.js",
-  "version": "01.01.1900",
+  "version": "01.01.1901",
   "license": "Apache-2.0",
   "main": "uws.js",
   "types": "./index.d.ts",

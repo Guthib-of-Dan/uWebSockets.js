@@ -180,7 +180,15 @@ jobs:
           echo '<-- [What files are in this directory?] -->'
           ls .
           git status
-          git add *.node source_commit
+          
+          # compress each file separately
+          for file in *.node; do
+            if [ -f "$file" ]; then
+            tar -czf "$file.tar.gz" "$file"
+            fi
+          done
+
+          git add *.gz source_commit
           git commit -m "Updated all binaries" || true
           git push origin binaries || true
       - name: Commit AddressSanitizer binaries
@@ -193,7 +201,14 @@ jobs:
           echo '<-- [What files are in this directory?] -->'
           ls .
           git status
-          git add *.node source_commit
+          # compress each file separately
+          for file in *.node; do
+            if [ -f "$file" ]; then
+            tar -czf "$file.tar.gz" "$file"
+            fi
+          done
+
+          git add *.gz source_commit
           git commit -m "Updated all binaries" || true
           git push origin binaries-asan || true
 

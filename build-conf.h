@@ -7,6 +7,8 @@
 #if defined(_WIN32)
 #define OS "win32"
 #define IS_WINDOWS
+// this macro suppresses Windows warning about "secure" deprecations, which only Windows cares about
+// #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 int get_cpu_count(void) {
     SYSTEM_INFO sysinfo;

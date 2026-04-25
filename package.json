@@ -1,11 +1,11 @@
 {
   "name": "uWebSockets.js",
-  "version": "20.66.0",
+  "version": "0.66.02",
   "license": "Apache-2.0",
   "main": "uws.js",
   "types": "./index.d.ts",
   "scripts": {
-    "postinstall": "node installer.js"
+    "postinstall": "node installer.js default"
   },  
   "exports": {
     ".": {

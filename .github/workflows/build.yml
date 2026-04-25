@@ -188,7 +188,7 @@ jobs:
 
           cd repo
           git fetch --depth=1 origin binaries-asan:binaries-asan
-          git switch binaries
+          git switch binaries-asan
           cp ../binaries-asan/* ../changes/source_commit .
           echo '<-- [What files are in this directory?] -->'
           ls .

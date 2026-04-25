@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-const VERSION = "v01.01.1901"
+const VERSION = "v01.01.1900"
 
 module.exports = (() => {
 	try {

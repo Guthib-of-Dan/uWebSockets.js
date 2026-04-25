@@ -1,11 +1,11 @@
 {
   "name": "uWebSockets.js",
-  "version": "01.01.1901",
+  "version": "01.01.1900",
   "license": "Apache-2.0",
   "main": "uws.js",
   "types": "./index.d.ts",
   "scripts": {
-    "postinstall": "node -p 'try { if(require(\"package.json\").name == \"uWebSockets.js\") { require(\"node:child_process\").execSync(\"node ./installer.js default\"); } } catch {  }'"
+    "prepare": "node -p 'try { if(require(\"package.json\").name == \"uWebSockets.js\") { require(\"node:child_process\").execSync(\"node ./installer.js default\"); } } catch {  }'"
   },
   "exports": {
     ".": {

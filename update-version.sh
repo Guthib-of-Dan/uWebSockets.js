@@ -1,7 +1,7 @@
 #!/bin/sh
 # start like "./update-version.sh 21.0.0"
 if [[ "$1" =~ ^[0-9\.]{5,}$ ]]; then
-    echo "Started updating README.md, src/installer.js/ src/uws.js, package.json"
+    echo "Started updating README.md src/installer.js src/uws.js src/package.json"
 else
     echo "Start like ./update-version.sh 21.0.0"
     echo "Invalid version format. Length >= 5 characters, 'MAJOR.MINOR.PATCH', where MAJOR, MINOR, PATCH - numbers"
@@ -14,6 +14,6 @@ sed -i "s/\\(var tag = \"v\\)[0-9\.]*/\\1$1/" src/installer.js
 
 sed -i "s/\\(const VERSION = \"v\\)[0-9\.]*/\\1$1/" src/uws.js
 
-sed -i "s/\\(\"version\": \"\)[0-9\.]*/\1$1/" package.json
+sed -i "s/\\(\"version\": \"\)[0-9\.]*/\1$1/" src/package.json
 
-git add README.md src/installer.js src/uws.js package.json
+git add README.md src/installer.js src/uws.js src/package.json

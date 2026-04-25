@@ -167,7 +167,7 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
           git rev-parse HEAD > ../changes/source_commit
-          cp docs/index.d.ts src/uws.js src/installer.js package.json ../changes
+          cp docs/index.d.ts src/uws.js src/installer.js package.json README.md ../changes
 
 
       - name: Commit binaries

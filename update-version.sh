@@ -16,4 +16,4 @@ sed -i "s/\\(const VERSION = \"v\\)[0-9\.]*/\\1$1/" src/uws.js
 
 sed -i "s/\\(\"version\": \"\)[0-9\.]*/\1$1/" package.json
 
-git add README.md src/installer.js src/uws.js
+git add README.md src/installer.js src/uws.js package.json

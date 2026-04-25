@@ -8,8 +8,7 @@ module.exports = async function downloadBinary(paramTag = tag, paramFilename = '
   var link = "https://github.com/" + repo + "/releases/download/" + paramTag + "/" + archiveName;
 
   console.log("Expected binary - " + paramFilename);
-  execSync(`curl -sS '${link}' -o ${archiveName} && tar -xzf ${paramFilename} ${archiveName} && rm ${archiveName}`, {stdio: "inherit", encoding: "utf16le"}, ); 
-
+  execSync(`curl -sSL '${link}' -o ${archiveName} && tar -xzf ${archiveName} && rm ${archiveName}`, {stdio: "inherit"}); 
   console.log("finished")
 }
 

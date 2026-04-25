@@ -581,7 +581,7 @@ namespace HttpResponseWrapper {
 
     template <OPTIONS::ENUM Option>
     Local<Object> init(Isolate *isolate) {
-        Local<FunctionTemplate> resTemplate = FunctionTemplate::New(isolate);
+        Local<FunctionTemplate> resTemplateLocal = FunctionTemplate::New(isolate);
 
         constexpr const char* classnames[4] = {
           "uWS.HttpResponse",
@@ -589,13 +589,13 @@ namespace HttpResponseWrapper {
           "uWS.Http3Response",
           "uWS.CachedHttpResponse"
         };
-        resTemplate->SetClassName(
+        resTemplateLocal->SetClassName(
             String::NewFromUtf8(isolate, classnames[static_cast<uint32_t>(Option)], NewStringType::kNormal).ToLocalChecked()
         );
 
-        resTemplate->InstanceTemplate()->SetInternalFieldCount(1);
+        resTemplateLocal->InstanceTemplate()->SetInternalFieldCount(1);
 
-        Local<ObjectTemplate> resObjectTemplate = resTemplate->PrototypeTemplate();
+        Local<ObjectTemplate> resObjectTemplate = resTemplateLocal->PrototypeTemplate();
         /* helper */
         auto regFn = [resObjectTemplate, isolate]<size_t N>(
           const char (&str)[N],
@@ -646,12 +646,10 @@ namespace HttpResponseWrapper {
               regFn("getX509Certificate", res_getX509Certificate<Option>);
             }
         }
-        Local<FunctionTemplate> resTemplateLocal = FunctionTemplate::New(isolate);
-                resTemplateLocal->InstanceTemplate()->SetInternalFieldCount(1);
-
         
         /* Create our template */
-        Local<Object> resObjectLocal = resTemplateLocal->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()->NewInstance(isolate->GetCurrentContext()).ToLocalChecked();
+        Local<Context> context = isolate->GetCurrentContext();
+        Local<Object> resObjectLocal = resTemplateLocal->GetFunction(context).ToLocalChecked()->NewInstance(context).ToLocalChecked();
 
         return resObjectLocal;
     }

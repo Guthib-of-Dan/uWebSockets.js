@@ -3,6 +3,7 @@ var repo = "Guthib-of-Dan/uWebSockets.js"
 var tag = "v01.01.1900"
 
 module.exports = async function downloadBinary(paramTag = tag, paramFilename = 'uws_' + process.platform + '_' + process.arch + '_' + process.versions.modules + '.node') {
+
   var execSync = require("node:child_process").execSync
   var archiveName = paramFilename + ".tar.gz";
   var link = "https://github.com/" + repo + "/releases/download/" + paramTag + "/" + archiveName;

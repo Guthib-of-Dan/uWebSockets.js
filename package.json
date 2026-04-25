@@ -5,8 +5,8 @@
   "main": "uws.js",
   "types": "./index.d.ts",
   "scripts": {
-    "postinstall": "node installer.js default"
-  },  
+    "postinstall": "node -p 'try { if(require(\"package.json\").name == \"uWebSockets.js\") { require(\"node:child_process\").execSync(\"node ./installer.js default\"); } } catch {  }'"
+  },
   "exports": {
     ".": {
       "import": "./ESM_wrapper.mjs",
@@ -14,5 +14,8 @@
       "types": "./index.d.ts"
     },
     "./installer": "./installer.js"
+  },
+  "dependencies": {
+    "ws": "^8.20.0"
   }
 }

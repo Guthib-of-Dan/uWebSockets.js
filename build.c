@@ -146,6 +146,7 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
   char *cpp_shared =
       "-DWIN32_LEAN_AND_MEAN -DUWS_WITH_PROXY -DLIBUS_USE_LIBUV "
       " -DLIBUS_USE_QUIC -I ../../uWebSockets/uSockets/boringssl/include "
+      " -DUWS_REMOTE_ADDRESS_USERSPACE"
       " -pthread "
       " -DLIBUS_USE_OPENSSL" OPT_FLAGS
       " -c -fPIC -std=c++20 -I ../../uWebSockets/uSockets/src"
@@ -200,6 +201,7 @@ void build_windows(char *compiler, char *cpp_compiler, char *cpp_linker, char *o
   char *cpp_shared =
       "-DWIN32_LEAN_AND_MEAN -DUWS_WITH_PROXY -DLIBUS_USE_LIBUV "
       "-DLIBUS_USE_QUIC -I../../uWebSockets/uSockets/lsquic/include "
+      "-DUWS_REMOTE_ADDRESS_USERSPACE "
       "-I../../uWebSockets/uSockets/lsquic/wincompat "
       "-I../../uWebSockets/uSockets/boringssl/include -DLIBUS_USE_OPENSSL -O3 -c "
       "-std=c++20 -I../../uWebSockets/uSockets/src -I../../uWebSockets/src ../../src/addon.cpp "

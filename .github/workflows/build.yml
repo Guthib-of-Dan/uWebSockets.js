@@ -216,6 +216,7 @@ jobs:
         run: |
 
           cd repo
+          rm *.node
           git fetch --depth=1 origin public:public
           git switch public
           mv ../changes/* .

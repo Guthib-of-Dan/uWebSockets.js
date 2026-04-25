@@ -1,7 +1,7 @@
 name: Build
 on:
   push:
-    branches: [ master ]
+    branches: [ nothing ]
 jobs:
   build:
     runs-on: ${{ matrix.os }}

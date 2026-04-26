@@ -1,0 +1,15 @@
+name: Publish 
+on:
+  release:
+    types: [published]
+jobs:
+  publish:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch binaries
+        run: |
+          git clone --depth=1 --branch binaries https://github.com/${{ github.repository }}.git .
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: ./*.gz

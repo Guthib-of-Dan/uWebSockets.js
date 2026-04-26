@@ -13,10 +13,9 @@
  */
 
 type TypedArray = Uint8Array | Int8Array | Uint16Array | Int16Array | Uint32Array | Int32Array | Float32Array | Float64Array;
+
+/* Helper class to create static responses, bypassing JavaScript handlers entirely */
 export declare class DeclarativeResponse<HeadersType = Record<string, string>> {
-    private instructions;
-    private _appendInstruction;
-    private _appendInstructionWithLength;
     writeHeader<Name extends keyof HeadersType & string>(key: Name, value: HeadersType[Name] & string): this;
     writeHeaders<Headers extends Partial<HeadersType>>(headers: Headers): this;
     writeBody(value: string): this;

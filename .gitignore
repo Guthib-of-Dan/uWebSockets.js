@@ -1,9 +1,9 @@
 #  --- compilation results ---
-dist
 targets
 *.o
 build.exe
 *.tar.gz
+dist/*.node
 compile_commands.json
 
 # --- nodejs ---

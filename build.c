@@ -25,7 +25,6 @@ void prepare() {
     // see console output IMMEDIATELY for debugging purposes
     setbuf(stdout, 0);
     run("mkdir tmp");
-    run("mkdir dist");
     for (unsigned int i = 0; i < versionsQuantity; i++) {
       run("mkdir \"tmp/c-%s\"", versions[i].abi);
       run("mkdir \"tmp/cpp-%s\"", versions[i].abi);

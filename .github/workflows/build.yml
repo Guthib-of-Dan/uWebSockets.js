@@ -4,7 +4,6 @@ on:
     branches: [ master-draft ]
 jobs:
   build:
-    if: github.ref_type != 'tag'
     strategy:
       fail-fast: false
       matrix:
@@ -167,8 +166,7 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
           git rev-parse HEAD > ../changes/source_commit
-          cp docs/index.d.ts src/uws.js src/installer.js src/package.json README.md ../changes
-
+          cp dist/* ../changes
 
       - name: Commit binaries
         run: |
@@ -217,11 +215,11 @@ jobs:
 
           cd repo
           rm *.node
-          git fetch --depth=1 origin public:public
-          git switch public
+          git fetch --depth=1 origin dist:dist
+          git switch dist 
           mv ../changes/* .
           git status
 
           git add .
           git commit -m "Updated commit version" || true
-          git push origin public
+          git push origin dist 

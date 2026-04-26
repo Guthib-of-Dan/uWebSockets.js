@@ -14,8 +14,25 @@
 
 type TypedArray = Uint8Array | Int8Array | Uint16Array | Int16Array | Uint32Array | Int32Array | Float32Array | Float64Array;
 
-/* Helper class to create static responses, bypassing JavaScript handlers entirely */
+
+/* Type for static responses, created by DeclarativeResponse.  */
+declare type DeclarativeOpCodes = ArrayBuffer & {[DeclarativeResponse.TypeConstrainer]: "DeclarativeResponse"}
+/** 
+* Helper class to create static responses, bypassing JavaScript handlers entirely.
+* @example
+* var server = App();
+* type BasicHeaders = { 
+*   "Content-Type": `${string}/${string}`;
+*   [k: string]: string 
+* }
+* server.get("/", 
+*   new DeclarativeResponse<BasicHeaders>()
+*     .writeHeader("Content-Type", "application/json")
+*     .end('{"message": "hello world"}')
+* );
+* */
 export declare class DeclarativeResponse<HeadersType = Record<string, string>> {
+    static readonly TypeConstrainer: unique symbol;
     writeHeader<Name extends keyof HeadersType & string>(key: Name, value: HeadersType[Name] & string): this;
     writeHeaders<Headers extends Partial<HeadersType>>(headers: Headers): this;
     writeBody(value: string): this;
@@ -24,7 +41,7 @@ export declare class DeclarativeResponse<HeadersType = Record<string, string>> {
     write(value: string): this;
     writeParameterValue(key: string): this;
     writeStatus(status: string): this;
-    end(value: string): ArrayBuffer;
+    end(value: string): DeclarativeOpCodes;
 }
 /** Native type representing a raw uSockets struct us_listen_socket_t.
  * Careful with this one, it is entirely unchecked and native so invalid usage will blow up.
@@ -122,7 +139,7 @@ export interface WebSocket<UserData> {
     sendLastFragment(message: RecognizedString, compress?: boolean): number;
 }
 /** An HttpResponse is valid until either onAborted callback or any of the .end/.tryEnd calls succeed. You may attach user data to this object. */
-export interface HttpResponse<WebSocketData = {}> {
+export interface HttpResponse<WebSocketUpgradeData = {}> {
     /** Writes the HTTP status message such as "200 OK".
      * This has to be called first in any response, otherwise
      * it will be called automatically with "200 OK".
@@ -215,14 +232,29 @@ export interface HttpResponse<WebSocketData = {}> {
     /**
     * Upgrades a HttpResponse to a WebSocket. See UpgradeAsync, UpgradeSync example files.
     * */
-    upgrade<UserData = {}>(userData: WebSocketData & UserData, secWebSocketKey: RecognizedString, secWebSocketProtocol: RecognizedString, secWebSocketExtensions: RecognizedString, context: us_socket_context_t): void;
+    upgrade<UserData = {}>(userData: WebSocketUpgradeData & UserData, secWebSocketKey: RecognizedString, secWebSocketProtocol: RecognizedString, secWebSocketExtensions: RecognizedString, context: us_socket_context_t): void;
     /** Arbitrary user data may be attached to this object */
     [key: string]: any;
 }
 /** An HttpRequest is stack allocated and only accessible during the callback invocation. */
 export interface HttpRequest {
-    /** Returns the lowercased header value or empty string. */
-    getHeader(lowerCaseKey: RecognizedString): string;
+    /**
+    * Returns the lowercased header value or empty string. 
+    * @example
+    * var server = App()
+    * server.get("/basic-usage", (res, req)=>{
+    *   console.log(req.getHeader("content-length"));
+    *   res.end("ok");
+    * })
+    *
+    * type BasicHeaders = {"Content-Type": `${string}/${string}`}
+    * type lowHeaders = Lowercase<keyof BasicHeaders>
+    * server.get("/LSP-help", (res, req)=>{
+    *   console.log(req.getHeader<lowHeaders>("content-length"));
+    *   res.end("ok");
+    * })
+    * */
+    getHeader<T extends RecognizedString = RecognizedString>(lowerCaseKey: T): string;
     /** Returns the parsed parameter at index. Corresponds to route. Can also take the name of the parameter. */
     getParameter(index: number | RecognizedString): string | undefined;
     /** Returns the URL including initial /slash */
@@ -238,7 +270,7 @@ export interface HttpRequest {
     /** Loops over all headers. */
     forEach(cb: (key: string, value: string) => void): void;
     /** Setting yield to true is to say that this route handler did not handle the route, causing the router to continue looking for a matching route handler, or fail. */
-    setYield(_yield: boolean): HttpRequest;
+    setYield(_yield: boolean): this;
 }
 /** A structure holding settings and handlers for a WebSocket URL route handler. */
 export interface WebSocketBehavior<UserData> {
@@ -296,6 +328,8 @@ export declare enum ListenOptions {
     LIBUS_LISTEN_DEFAULT = 0,
     LIBUS_LISTEN_EXCLUSIVE_PORT = 1
 }
+/* type, representing HTTP request handler */
+type HttpController = (res: HttpResponse, req: HttpRequest) => void | Promise<void>
 /** TemplatedApp is either an SSL or non-SSL app. See App for more info, read user manual. */
 export interface TemplatedApp {
     /** Listens to hostname & port. Callback hands either false or a listen socket. */
@@ -308,26 +342,27 @@ export interface TemplatedApp {
     listen(port: number, options: ListenOptions, cb: (listenSocket: us_listen_socket | false) => void | Promise<void>): this;
     /** Listens to unix socket. Callback hands either false or a listen socket. */
     listen_unix(cb: (listenSocket: us_listen_socket) => void | Promise<void>, path: RecognizedString): this;
+
     /** Registers an HTTP GET handler matching specified URL pattern. */
-    get(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void | Promise<void>): this;
+    get(pattern: RecognizedString, handler: HttpController | DeclarativeOpCodes): this;
     /** Registers an HTTP POST handler matching specified URL pattern. */
-    post(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void | Promise<void>): this;
+    post(pattern: RecognizedString, handler: HttpController | DeclarativeOpCodes): this;
     /** Registers an HTTP OPTIONS handler matching specified URL pattern. */
-    options(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void | Promise<void>): this;
+    options(pattern: RecognizedString, handler: HttpController | DeclarativeOpCodes): this;
     /** Registers an HTTP DELETE handler matching specified URL pattern. */
-    del(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void | Promise<void>): this;
+    del(pattern: RecognizedString, handler: HttpController | DeclarativeOpCodes): this;
     /** Registers an HTTP PATCH handler matching specified URL pattern. */
-    patch(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void | Promise<void>): this;
+    patch(pattern: RecognizedString, handler: HttpController | DeclarativeOpCodes): this;
     /** Registers an HTTP PUT handler matching specified URL pattern. */
-    put(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void | Promise<void>): this;
+    put(pattern: RecognizedString, handler: HttpController | DeclarativeOpCodes): this;
     /** Registers an HTTP HEAD handler matching specified URL pattern. */
-    head(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void | Promise<void>): this;
+    head(pattern: RecognizedString, handler: HttpController | DeclarativeOpCodes): this;
     /** Registers an HTTP CONNECT handler matching specified URL pattern. */
-    connect(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void | Promise<void>): this;
+    connect(pattern: RecognizedString, handler: HttpController | DeclarativeOpCodes): this;
     /** Registers an HTTP TRACE handler matching specified URL pattern. */
-    trace(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void | Promise<void>): this;
+    trace(pattern: RecognizedString, handler: HttpController | DeclarativeOpCodes): this;
     /** Registers an HTTP handler matching specified URL pattern on any HTTP method. */
-    any(pattern: RecognizedString, handler: (res: HttpResponse, req: HttpRequest) => void | Promise<void>): this;
+    any(pattern: RecognizedString, handler: HttpController | DeclarativeOpCodes): this;
     /** Registers a handler matching specified URL pattern where WebSocket upgrade requests are caught. */
     ws<UserData>(pattern: RecognizedString, behavior: WebSocketBehavior<UserData>): this;
     /** Publishes a message under topic, for all WebSockets under this app. See WebSocket.publish. */

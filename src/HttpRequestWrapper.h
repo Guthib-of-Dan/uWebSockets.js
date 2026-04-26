@@ -74,7 +74,7 @@ namespace HttpRequestWrapper {
             int index = args[0]->Uint32Value(isolate->GetCurrentContext()).ToChecked();
             parameter = req->getParameter(index);
         } else {
-            NativeString<true> data(args.GetIsolate(), args[0]);
+            NativeString<true> data(isolate, args[0]);
             if (data.isInvalid(args)) {
                 return;
             }
@@ -103,17 +103,16 @@ namespace HttpRequestWrapper {
         OPTIONS::IS_TCP_OR_QUIC<Option>();
         Isolate *isolate = args.GetIsolate();
         auto *req = getHttpRequest<Option>(args);
-        if (req) {
-            NativeString<true> data(args.GetIsolate(), args[0]);
-            if (data.isInvalid(args)) {
-                return;
-            }
-
-            std::string_view header = req->getHeader(data.getString());
-
-            /* We want latin1 here */
-            args.GetReturnValue().Set(String::NewFromOneByte(isolate, (const uint8_t *)header.data(), NewStringType::kNormal, header.length()).ToLocalChecked());
+        if (!req) return;
+        NativeString<true> data(isolate, args[0]);
+        if (data.isInvalid(args)) {
+            return;
         }
+
+        std::string_view header = req->getHeader(data.getString());
+
+        /* We want latin1 here */
+        args.GetReturnValue().Set(String::NewFromOneByte(isolate, static_cast<const uint8_t *>(header.data()), NewStringType::kNormal, header.length()).ToLocalChecked());
     }
 
     /* Takes boolean, returns this */
@@ -122,12 +121,11 @@ namespace HttpRequestWrapper {
         OPTIONS::IS_TCP_OR_QUIC<Option>();
         Isolate *isolate = args.GetIsolate();
         auto *req = getHttpRequest<Option>(args);
-        if (req) {
-            bool yield = args[0]->BooleanValue(isolate);
-            req->setYield(yield);
+        if (!req) return;
+        bool yield = args[0]->BooleanValue(isolate);
+        req->setYield(yield);
 
-            args.GetReturnValue().Set(args.This());
-        }
+        args.GetReturnValue().Set(args.This());
     }
 
     /* Takes nothing, returns string */
@@ -136,11 +134,10 @@ namespace HttpRequestWrapper {
         OPTIONS::IS_TCP_OR_QUIC<Option>();
         Isolate *isolate = args.GetIsolate();
         auto *req = getHttpRequest<Option>(args);
-        if (req) {
-            std::string_view method = req->getMethod();
+        if (!req) return;
+        std::string_view method = req->getMethod();
 
-            args.GetReturnValue().Set(String::NewFromUtf8(isolate, method.data(), NewStringType::kNormal, method.length()).ToLocalChecked());
-        }
+        args.GetReturnValue().Set(String::NewFromUtf8(isolate, method.data(), NewStringType::kNormal, method.length()).ToLocalChecked());
     }
 
     /* Takes nothing, returns string */
@@ -149,11 +146,10 @@ namespace HttpRequestWrapper {
         OPTIONS::IS_TCP_OR_QUIC<Option>();
         Isolate *isolate = args.GetIsolate();
         auto *req = getHttpRequest<Option>(args);
-        if (req) {
-            std::string_view method = req->getCaseSensitiveMethod();
+        if (!req) return;
+        std::string_view method = req->getCaseSensitiveMethod();
 
-            args.GetReturnValue().Set(String::NewFromUtf8(isolate, method.data(), NewStringType::kNormal, method.length()).ToLocalChecked());
-        }
+        args.GetReturnValue().Set(String::NewFromUtf8(isolate, method.data(), NewStringType::kNormal, method.length()).ToLocalChecked());
     }
 
     template <OPTIONS::ENUM Option>
@@ -161,28 +157,27 @@ namespace HttpRequestWrapper {
         OPTIONS::IS_TCP_OR_QUIC<Option>();
         Isolate *isolate = args.GetIsolate();
         auto *req = getHttpRequest<Option>(args);
-        if (req) {
-            std::string_view query;
+        if (!req) return;
+        std::string_view query;
 
-            /* Do we have a key argument? */
-            if (args.Length() == 1) {
-                NativeString<true> keyString(isolate, args[0]);
-                if (keyString.isInvalid(args)) {
-                    return;
-                }
-
-                query = req->getQuery(keyString.getString());
-            } else {
-                query = req->getQuery();
-            }
-            
-            /* If we have nullptr as data, it's not simply an empty string */
-            if (query.data() == nullptr) {
+        /* Do we have a key argument? */
+        if (args.Length() == 1) {
+            NativeString<true> keyString(isolate, args[0]);
+            if (keyString.isInvalid(args)) {
                 return;
             }
 
-            args.GetReturnValue().Set(String::NewFromUtf8(isolate, query.data(), NewStringType::kNormal, query.length()).ToLocalChecked());
+            query = req->getQuery(keyString.getString());
+        } else {
+            query = req->getQuery();
         }
+        
+        /* If we have nullptr as data, it's not simply an empty string */
+        if (query.data() == nullptr) {
+            return;
+        }
+
+        args.GetReturnValue().Set(String::NewFromUtf8(isolate, query.data(), NewStringType::kNormal, query.length()).ToLocalChecked());
     }
 
     /* Returns a clonable object wrapping an HttpRequest */

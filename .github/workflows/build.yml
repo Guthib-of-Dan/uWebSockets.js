@@ -124,9 +124,6 @@ jobs:
         with: 
           name: binaries-${{ matrix.os }}-${{ matrix.arch }}
           path: dist
-      - run: |
-          mv src/uws.js dist
-          mv docs/index.d.ts dist
       - run: npm install ws && cd tests && node smoke.js
   save:
     permissions:

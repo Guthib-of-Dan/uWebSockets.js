@@ -18,4 +18,16 @@ This repo introduces ways to address certain issues faster, more ergonomically a
 
 - created "update-version.sh" script, which uses "Stream Editor" to update version tag of uWebSockets.js in many files at once. It also updates documentation in "docs/" folder with "typedoc" and runs "git add" to all updated files. This is not TOO opiniated because versioning is indeed a problem.
 
-- Branches "binaries", "binaries-asan" and "dist" are the ones receiving constant commits from GitHub Actions CI. When, in fact, GitHub Releases make persistent snapshots of the repo at certain commits, Git history doesn't provide much benefit over a simple disk storage. If some change in code has to be reverted, "master" is always update, hence "binaries" receive updated artifacts. Reverting this storage is never barely ever used. That is why we can easily "reset" their history, removing 1.5GB+ of Git commits, that never get used. First step is to delete "binaries" and "binaries-asan" binaries from the repo, which does not hurt GitHub Releases in any way. Secondly, we can run "git checkout --orphan binaries && git rm -rf --cached ." to create empty
+- Branches "binaries", "binaries-asan" and "dist" are the ones receiving constant commits from GitHub Actions CI. When, in fact, GitHub Releases make persistent snapshots of the repo at certain commits, Git history doesn't provide much benefit over a simple disk storage. If some change in code has to be reverted, "master" is always updated, hence "binaries" receive new (reverted) artifacts in a new commit. Reverting this storage is barely ever used. That is why we can easily "reset" their history, removing 1.5GB+ of Git commits, that never get used. First step is to delete "binaries" and "binaries-asan" binaries from the repo, which does not hurt GitHub Releases in any way. Secondly, we can run "git checkout --orphan binaries && git reset" to create empty branch with no history and staged files (working directory is not changed at all. All files are where they were). Then add README.md and LICENSE (dist branch is for JS in this uWS.js fork), commit->push - now branches weigh almost nothing, 2400 commits less than before, 800 commits less than "master"
+
+## CI GitHub Actions pipeline
+
+- CI uses caching for Git Submodules. It does not bring any difficulties if CI structure is well-established, which it is. The longest it takes to compile binaries is 4 minutes.
+
+- Repo is cloned only with its last commit and submodules as well. No fetching whole history can cut ~10 seconds.
+
+- CI exports compiled binaries as artifacts, letting VMs be started many times and reuse them for different purposes.
+
+- Build step combines both production binaries and onse with AddressSanitizer. Less parallel jobs, more reuse of cached dependcies. Windows does not build ASAN binaries, yet it usually compiles the longest (1 vCPU in CI).
+
+- Testing now happens for all architectures (almost), all platforms in parallel immediately after building. Overall 16 VMs spawning to test each case. The only one missing is MacOS x64. Currently only "tests/smoke.js" is run, but these parallel VMs open huge possibilities for extensions.

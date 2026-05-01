@@ -3,13 +3,40 @@ on:
   release:
     types: [published]
 jobs:
+  deploy-website:
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: "pages"
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Bun to install Typedoc 
+        uses: oven-sh/setup-bun@v2
+      - name: checkout
+        run: git clone --depth=1 --branch master-draft https://github.com/${{ github.repository }}.git .
+      - name: generate documentation website
+        run: cd docs && bun x typedoc
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './docs/generated'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
   publish:
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
       - name: Fetch binaries
-        run: |
-          git clone --depth=1 --branch binaries https://github.com/${{ github.repository }}.git .
+        run: git clone --depth=1 --branch binaries https://github.com/${{ github.repository }}.git .
       - uses: softprops/action-gh-release@v3
         with:
           files: ./*.gz

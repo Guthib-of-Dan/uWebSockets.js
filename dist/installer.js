@@ -4,12 +4,12 @@ var tag = "v0.0.1"
 
 module.exports = async function downloadBinary(paramTag = tag, paramFilename = 'uws_' + process.platform + '_' + process.arch + '_' + process.versions.modules + '.node') {
 
-  var execSync = require("node:child_process").execSync
   var archiveName = paramFilename + ".tar.gz";
   var link = "https://github.com/" + repo + "/releases/download/" + paramTag + "/" + archiveName;
 
   console.log("Expected binary - " + paramFilename);
-  execSync(`curl -sSL '${link}' -o ${archiveName} && tar -xzf ${archiveName} && rm ${archiveName}`, {stdio: "inherit"}); 
+  require("node:child_process").execSync(`curl -sSL \"${link}\" -o ${archiveName} && tar -xzf ${archiveName}`, {stdio: "inherit"}); 
+  require("node:fs").rmSync(archiveName)
   console.log("finished")
 }
 

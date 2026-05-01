@@ -193,6 +193,7 @@ jobs:
           git fetch --depth=1 origin binaries-asan:binaries-asan
           git switch binaries-asan
           cp ../binaries-asan/* ../changes/source_commit .
+          rm *win32* || true
           echo '<-- [What files are in this directory?] -->'
           ls .
           git status

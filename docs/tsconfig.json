@@ -1,10 +1,11 @@
 {
 	"files": [ "../dist/index.d.ts" ],
   "compilerOptions": {
-		"lib": [ "es2017" ]
+		"lib": [ "es2017" ],
+    "strictNullChecks":true
 	},
 	"typedocOptions": {
-		"name":"uWebSockets.js v0.0.0 documentation",
+		"name":"uWebSockets.js v0.0.1 documentation",
 		"entryPoints": [ "../dist/index.d.ts" ],
 		"out":"generated",
 		"excludeExternals":true,

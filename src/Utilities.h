@@ -185,7 +185,7 @@ public:
             allocated = true;
             string->WriteUtf8(isolate, data, length, nullptr, String::WriteOptions::NO_NULL_TERMINATION);
 
-        } else if (value->ArrayBufferView()) {
+        } else if (value->IsArrayBufferView()) {
             Local<ArrayBufferView> arrayBufferView = Local<ArrayBufferView>::Cast(value);
             auto contents = arrayBufferView->Buffer()->GetBackingStore();
             length = arrayBufferView->ByteLength();

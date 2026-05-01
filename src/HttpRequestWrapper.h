@@ -110,9 +110,8 @@ namespace HttpRequestWrapper {
         }
 
         std::string_view header = req->getHeader(data.getString());
-
         /* We want latin1 here */
-        args.GetReturnValue().Set(String::NewFromOneByte(isolate, static_cast<const uint8_t *>(header.data()), NewStringType::kNormal, header.length()).ToLocalChecked());
+        args.GetReturnValue().Set(String::NewFromOneByte(isolate, reinterpret_cast<const uint8_t *>(header.data()), NewStringType::kNormal, header.length()).ToLocalChecked());
     }
 
     /* Takes boolean, returns this */

@@ -177,13 +177,6 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
 }
 #endif
 
-void copy_files() {
-#ifdef IS_WINDOWS
-    run("copy \"src\\uws.js\" dist /Y");
-#else
-    run("cp src/uws.js dist/uws.js");
-#endif
-}
 
 #if defined(IS_WINDOWS)
 /* Special case for windows */
@@ -284,6 +277,4 @@ int main() {
           arch);
 #endif
 #endif
-
-    copy_files();
 }

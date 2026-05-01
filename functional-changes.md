@@ -1,8 +1,20 @@
 # Changes in functionalty
 This repo introduces ways to address certain issues faster, more ergonomically and more in a cenrtalised manner.
 
+## Summary
+This fork contains following changes: 
+1) compilation time has been hugely decreased by utilising all available CPU threads;
+2) GitHub Actions CI uses cached Git Submodules, which lets CI reuse compiled dependencies;
+3) GitHub CI performs testing for all available platforms and all supported NodeJS versions - 16 VMs; 
+4) branches "binaries" and "binaries-asan" act as artifact storage with gzip-compressed binaries and their Git history was cleared up to 1 commit vs. 2400+ originally; 
+5) GitHub Releases are published from "dist" branch, which contains an installer of binaries, so only single 2.5MB binary is installed with "postinstall" script within package.json; 
+6) ESM wrapper exports DeclarativeResponse
+7) TypeScript was modified to use types for HTTP header autocompletion, "TemplatedApp" host-specific extension
+8) Versioning (editing README, package.json ...) was centralised. Now one script performs it all. 
+9) C++ template functions previous used types like "int|bool" to compile for "TCP,SSL,QUIC,CACHE". Now each template handler uses global "namespace OPTIONS" with an "enum" and several "constexpr" validators with "static_assert", to limit handlers to "TCP|SSL" or "TCP|QUIC" where only they are supported.
+
 ## Compilation
-- build.c contains "setbuf" to avoid buffering, which makes debugging GitHub Actions CI a nightmare. 
+- build.c contains "setbuf" to avoid buffering logs, making debugging GitHub Actions CI a nightmare. 
 
 - compilation results are written to the "tmp" folder, as well as fetching archives of NodeJS headers. Each NodeJS version has its own Application Binary Interface (ABI), so uSockets is compiled to "tmp/c-%abi%" and uWebSockets.js is compiled (not linked) to "tmp/cpp-%abi%", where %abi% is a corresponding ABI version (number). This opens multithreading possibilities.
 
@@ -30,4 +42,5 @@ This repo introduces ways to address certain issues faster, more ergonomically a
 
 - Build step combines both production binaries and onse with AddressSanitizer. Less parallel jobs, more reuse of cached dependcies. Windows does not build ASAN binaries, yet it usually compiles the longest (1 vCPU in CI).
 
-- Testing now happens for all architectures (almost), all platforms in parallel immediately after building. Overall 16 VMs spawning to test each case. The only one missing is MacOS x64. Currently only "tests/smoke.js" is run, but these parallel VMs open huge possibilities for extensions.
+- Testing now happens for all architectures (almost), all platforms in parallel immediately after building. Overall 16 VMs spawning to test each case. The only one missing is MacOS x64. Currently only "tests/smoke.js" is run, but these parallel VMs open huge possibilities for further development.
+

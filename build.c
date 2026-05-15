@@ -142,15 +142,16 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
       " ../../uWebSockets/uSockets/src/*.c "
       " ../../uWebSockets/uSockets/src/eventing/*.c "
       " ../../uWebSockets/uSockets/src/crypto/*.c";
+
   char *cpp_shared =
       "-DWIN32_LEAN_AND_MEAN -DUWS_WITH_PROXY -DLIBUS_USE_LIBUV "
-      " -DLIBUS_USE_QUIC -I ../../uWebSockets/uSockets/boringssl/include "
+      " -DLIBUS_USE_QUIC -I uWebSockets/uSockets/boringssl/include "
       " -DUWS_REMOTE_ADDRESS_USERSPACE"
       " -pthread "
       " -DLIBUS_USE_OPENSSL" OPT_FLAGS
-      " -c -fPIC -std=c++20 -I ../../uWebSockets/uSockets/src"
-      " -I ../../uWebSockets/src"
-      " ../../src/addon.cpp";
+      " -fPIC -std=c++20 -I uWebSockets/uSockets/src"
+      " -I uWebSockets/src"
+      " src/addon.cpp ";
 
   pid_t pids[versionsQuantity];
   for (unsigned int i = 0; i < versionsQuantity; i++) {
@@ -160,14 +161,13 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
       // different abi = no race condition in parallel
       run("cd tmp/c-%s && %s %s -I ../../targets/node-%s/include/node",
           versions[i].abi, compiler, c_shared, versions[i].name);
-      run("cd tmp/cpp-%s && %s %s -I ../../targets/node-%s/include/node",
-          versions[i].abi, cpp_compiler, cpp_shared, versions[i].name);
-      run("%s -pthread" LINK_FLAGS " tmp/c-%s/*.o tmp/cpp-%s/*.o "
+      run("%s -pthread" LINK_FLAGS " tmp/c-%s/*.o %s "
+          "-I targets/node-%s/include/node "
           "uWebSockets/uSockets/boringssl/%s/libssl.a "
           "uWebSockets/uSockets/boringssl/%s/libcrypto.a "
           "uWebSockets/uSockets/lsquic/%s/src/liblsquic/liblsquic.a "
           "-std=c++20 -shared %s -o dist/uws_%s_%s_%s.node",
-          cpp_compiler, versions[i].abi, versions[i].abi, arch, arch, arch,
+          cpp_compiler, versions[i].abi, cpp_shared, versions[i].name, arch, arch, arch,
           cpp_linker, os, arch, versions[i].abi);
       exit(0);
     }
@@ -177,6 +177,20 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
 }
 #endif
 
+//void a(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const char *arch) {
+//
+//  pid_t pids[versionsQuantity];
+//  for (unsigned int i = 0; i < versionsQuantity; i++) {
+//    pids[i] = fork();
+//    if (pids[i] == 0) {
+//      run("cd tmp/c-%s && %s %s -I ../../targets/node-%s/include/node",
+//          versions[i].abi, compiler, c_shared, versions[i].name);
+//      run("cd tmp/cpp-%s && %s %s -I ../../targets/node-%s/include/node",
+//          versions[i].abi, cpp_compiler, cpp_shared, versions[i].name);
+//      exit(0);
+//    }
+//  }
+//}
 
 #if defined(IS_WINDOWS)
 /* Special case for windows */

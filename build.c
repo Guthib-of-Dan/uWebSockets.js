@@ -38,7 +38,7 @@ void prepare() {
     for (unsigned char i = 0; i < versionsQuantity; i++) {
       nodejs_headers(versions[i].name);
     }
-    printf("[Fetched NodeJS headers v20,v22,v24,v25]\n");
+    printf("[Fetched NodeJS headers v22,v24,v26]\n");
 }
 
 void build_lsquic(const char *arch) {
@@ -49,22 +49,22 @@ void build_lsquic(const char *arch) {
 #ifdef IS_MACOS
     if (arch == X64) {
       run("cd uWebSockets/uSockets/lsquic && mkdir -p arm64 && cd arm64 && "
-          "cmake -DCMAKE_POSITION_INDEPENDENT_CODE=ON "
+          "cmake -G Ninja -DCMAKE_POSITION_INDEPENDENT_CODE=ON "
           "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 "
           "-DCMAKE_OSX_ARCHITECTURES=arm64 -DBORINGSSL_DIR=../boringssl "
-          "-DCMAKE_BUILD_TYPE=Release -DLSQUIC_BIN=Off .. && make -j%i lsquic", threads_quantity);
+          "-DCMAKE_BUILD_TYPE=Release -DLSQUIC_BIN=Off .. && ninja -j%i lsquic", threads_quantity);
     } else if (arch == ARM64) {
-      run("cd uWebSockets/uSockets/lsquic && mkdir -p x64 && cd x64 && cmake "
+      run("cd uWebSockets/uSockets/lsquic && mkdir -p x64 && cd x64 && cmake -G Ninja "
           "-DCMAKE_POSITION_INDEPENDENT_CODE=ON "
           "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 "
           "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DBORINGSSL_DIR=../boringssl "
-          "-DCMAKE_BUILD_TYPE=Release -DLSQUIC_BIN=Off .. && make -j%i lsquic", threads_quantity);
+          "-DCMAKE_BUILD_TYPE=Release -DLSQUIC_BIN=Off .. && ninja -j%i lsquic", threads_quantity);
     }
 #else
     /* Linux */
-    run("cd uWebSockets/uSockets/lsquic && mkdir -p %s && cd %s && cmake "
+    run("cd uWebSockets/uSockets/lsquic && mkdir -p %s && cd %s && cmake -G Ninja "
         "-DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBORINGSSL_DIR=../boringssl "
-        "-DCMAKE_BUILD_TYPE=Release -DLSQUIC_BIN=Off .. && make -j%i lsquic",
+        "-DCMAKE_BUILD_TYPE=Release -DLSQUIC_BIN=Off .. && ninja -j%i lsquic",
         arch, arch, threads_quantity);
 
 #endif
@@ -97,24 +97,24 @@ void build_boringssl(const char *arch) {
     /* Only macOS uses cross-compilation */
     if (arch == X64) {
       run("cd uWebSockets/uSockets/boringssl && mkdir -p x64 && cd x64 && "
-          "cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 "
+          "cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 "
           "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 "
-          ".. && make -j%i crypto ssl", threads_quantity);
+          ".. && ninja -j%i crypto ssl", threads_quantity);
     } else if (arch == ARM64) {
       run("cd uWebSockets/uSockets/boringssl && mkdir -p arm64 && cd arm64 && "
-          "cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 .. "
+          "cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 .. "
           "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 "
-          "&& make -j%i crypto ssl", threads_quantity);
+          "&& ninja -j%i crypto ssl", threads_quantity);
     }
 #endif
     
 #ifdef IS_LINUX
     /* Build for x64 or arm/arm64 (depending on the host) */
     run("cd uWebSockets/uSockets/boringssl && mkdir -p %s && cd %s &&"
-        " cmake "
+        " cmake -G Ninja "
         "-DCMAKE_POSITION_INDEPENDENT_CODE=ON "
         "-DCMAKE_BUILD_TYPE=Release .. && "
-        "make -j%i crypto ssl",
+        "ninja -j%i crypto ssl",
         arch, arch, threads_quantity);
 #endif
     
@@ -215,13 +215,9 @@ void build_windows(char *compiler, char *cpp_compiler, char *cpp_linker, char *o
 }
 #endif
 
-int main() {
+int main(int argc, const char* argv[]) {
     threads_quantity = get_cpu_count();
     printf("<-- ENTRY POINT!!! -->\n[Parallel threads available: %i]\n", threads_quantity);
-
-    printf("[Preparing]\n");
-    prepare();
-    printf("\n[Building]\n");
     
     const char *arch = X64;
 #ifdef __arm__
@@ -231,6 +227,11 @@ int main() {
     arch = ARM64;
 #endif
 
+
+
+  if(argc == 1 || argc > 1 && !strcmp(argv[1], "deps")) {
+    printf("<--[Fetching + Compiling dependencies]-->\n");
+    prepare();
 #ifdef IS_MACOS
     /* If we are macOS, build both arm64 and x64 */
     build_boringssl(X64);
@@ -242,7 +243,8 @@ int main() {
     build_boringssl(arch);
     build_lsquic(arch);
 #endif
-
+    printf("\n[Finished fetching + compiling dependencies]\n");
+  }
 
 #ifdef IS_WINDOWS
     /* We can use clang, but we currently do use cl.exe still */

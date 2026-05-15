@@ -29,7 +29,7 @@ namespace WebSocketWrapper {
         OPTIONS::IS_TCP_OR_SSL<Option>();
 
         Isolate *isolate = args.GetIsolate();
-        auto *ws = (uWS::WebSocket<Option == OPTIONS::ENUM::SSL, true, PerSocketData> *) args.This()->GetAlignedPointerFromInternalField(0);
+        auto *ws = (uWS::WebSocket<Option == OPTIONS::ENUM::SSL, true, PerSocketData> *) getInternalPointer(args.This());
         if (!ws) {
             args.GetReturnValue().Set(isolate->ThrowException(v8::Exception::Error(String::NewFromUtf8(isolate, "Invalid access of closed uWS.WebSocket/SSLWebSocket.", NewStringType::kNormal).ToLocalChecked())));
         }
@@ -37,7 +37,7 @@ namespace WebSocketWrapper {
     }
 
     inline void invalidateWsObject(args_t args) {
-        args.This()->SetAlignedPointerInInternalField(0, nullptr);
+        setInternalPointer(args.This(), nullptr);
     }
 
     /* Takes nothing returns holder (only used to fool TypeScript, as a conversion from WS to UserData) */
@@ -349,7 +349,7 @@ namespace WebSocketWrapper {
         OPTIONS::IS_TCP_OR_SSL<Option>();
     
         auto *ws = static_cast<uWS::WebSocket<Option == OPTIONS::ENUM::SSL, true, PerSocketData> *>(
-            receiver->GetAlignedPointerFromInternalField(0)
+            getInternalPointer(receiver)
         );
         if (!ws) return 0;
         return ws->send(std::string_view(message.data, message.length),
@@ -367,7 +367,7 @@ namespace WebSocketWrapper {
         OPTIONS::IS_TCP_OR_SSL<Option>();
     
         auto *ws = static_cast<uWS::WebSocket<Option == OPTIONS::ENUM::SSL, true, PerSocketData> *>(
-            receiver->GetAlignedPointerFromInternalField(0)
+            getInternalPointer(receiver)
         );
         if (!ws) return 0;
     

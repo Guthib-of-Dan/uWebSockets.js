@@ -74,11 +74,9 @@ struct node_version {
     const char *name;
     const char *abi;
 } versions[] = {
-    {"v24.0.0", "137"},
-    {"v20.0.0", "115"},
     {"v22.0.0", "127"},
-    {"v25.0.0", "141"}
+    {"v24.0.0", "137"},
+    {"v26.0.0", "147"}
 };
 const int versionsQuantity = sizeof(versions) / sizeof(struct node_version);
-
 int threads_quantity;

@@ -15,6 +15,26 @@ using namespace v8;
 // helper to make life easier
 using args_t = const FunctionCallbackInfo<Value>&;
 
+/* Getting internal pointer is different in recent V8 versions */
+  void *getInternalPointer(const Local<Object> &holder) {
+    return holder->GetAlignedPointerFromInternalField(
+#if (V8_MAJOR_VERSION == 14)
+        0, 0
+#else
+       0
+#endif
+    );
+  }
+  void setInternalPointer(const Local<Object> &holder, void *value) {
+    holder->SetAlignedPointerInInternalField(
+#if (V8_MAJOR_VERSION == 14)
+        0, value, 0
+#else
+       0, value
+#endif
+    );
+  }
+
 // These enums constraint "template" params for functions. 
 namespace OPTIONS {
   enum class ENUM : uint32_t {
@@ -180,11 +200,17 @@ public:
             /* StringView path is Latin-1, not Utf-8 */
 
             // Fallback
+#if (V8_MAJOR_VERSION == 14) 
+            length = string->Utf8LengthV2(isolate);
+            data = alloc(length);
+            allocated = true;
+            string->WriteUtf8V2(isolate, data, length);
+#else
             length = string->Utf8Length(isolate);
             data = alloc(length);
             allocated = true;
             string->WriteUtf8(isolate, data, length, nullptr, String::WriteOptions::NO_NULL_TERMINATION);
-
+#endif
         } else if (value->IsArrayBufferView()) {
             Local<ArrayBufferView> arrayBufferView = Local<ArrayBufferView>::Cast(value);
             auto contents = arrayBufferView->Buffer()->GetBackingStore();

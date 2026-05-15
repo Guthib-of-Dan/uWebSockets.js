@@ -33,7 +33,7 @@ void uWS_App_ws(args_t args) {
 
     PerIsolateData *perIsolateData = (PerIsolateData *) Local<External>::Cast(args.Data())->Value();
 
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
     /* This one is default constructed with defaults */
     typename APP::template WebSocketBehavior<PerSocketData> behavior = {};
 
@@ -118,16 +118,16 @@ void uWS_App_ws(args_t args) {
 
             Local<Function> upgradeLf = Local<Function>::New(isolate, upgradePf);
             Local<Object> resObject = perIsolateData->resTemplate[getAppTypeIndex<APP>()].Get(isolate)->Clone();
-            resObject->SetAlignedPointerInInternalField(0, res);
+            setInternalPointer(resObject, res);
 
             Local<Object> reqObject = perIsolateData->reqTemplate[std::is_same<APP, uWS::H3App>::value].Get(isolate)->Clone();
-            reqObject->SetAlignedPointerInInternalField(0, req);
+            setInternalPointer(resObject, req);
 
             Local<Value> argv[3] = {resObject, reqObject, External::New(isolate, (void *) context)};
             CallJS(isolate, upgradeLf, 3, argv);
 
             /* Properly invalidate req */
-            reqObject->SetAlignedPointerInInternalField(0, nullptr);
+            setInternalPointer(reqObject, nullptr);
 
             /* µWS itself will terminate if not responded and not attached
             * onAborted handler, so we can assume it's done */
@@ -141,7 +141,7 @@ void uWS_App_ws(args_t args) {
 
         /* Create a new websocket object */
         Local<Object> wsObject = perIsolateData->wsTemplate[getAppTypeIndex<APP>()].Get(isolate)->Clone();
-        wsObject->SetAlignedPointerInInternalField(0, ws);
+        setInternalPointer(wsObject, ws);
 
         /* Retrieve temporary userData object */
         PerSocketData *perSocketData = (PerSocketData *) ws->getUserData();
@@ -278,7 +278,7 @@ void uWS_App_ws(args_t args) {
         Local<Object> wsObject = Local<Object>::New(isolate, perSocketData->socketPf);
 
         /* Invalidate this wsObject */
-        wsObject->SetAlignedPointerInInternalField(0, nullptr);
+        setInternalPointer(wsObject, nullptr);
 
         /* Only call close handler if we have one set */
         Local<Function> closeLf = Local<Function>::New(isolate, closePf);
@@ -303,7 +303,7 @@ void uWS_App_ws(args_t args) {
 /* This method wraps get, post and all http methods */
 template <typename APP, typename F>
 void uWS_App_get(F f, args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
 
     /* Pattern */
     NativeString pattern(args.GetIsolate(), args[0]);
@@ -456,16 +456,16 @@ void uWS_App_get(F f, args_t args) {
         HandleScope hs(isolate);
 
         Local<Object> resObject = perIsolateData->resTemplate[getAppTypeIndex<APP>()].Get(isolate)->Clone();
-        resObject->SetAlignedPointerInInternalField(0, res);
+        setInternalPointer(resObject, res);
 
         Local<Object> reqObject = perIsolateData->reqTemplate[std::is_same<APP, uWS::H3App>::value].Get(isolate)->Clone();
-        reqObject->SetAlignedPointerInInternalField(0, req);
+        setInternalPointer(reqObject, req);
 
         Local<Value> argv[] = {resObject, reqObject};
         CallJS(isolate, cb.Get(isolate), 2, argv);
 
         /* Properly invalidate req */
-        reqObject->SetAlignedPointerInInternalField(0, nullptr);
+        setInternalPointer(reqObject, nullptr);
 
         /* µWS itself will terminate if not responded and not attached
          * onAborted handler, so we can assume it's done */
@@ -476,7 +476,7 @@ void uWS_App_get(F f, args_t args) {
 
 template <typename APP>
 void uWS_App_close(args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
 
     app->close();
     args.GetReturnValue().Set(args.This());
@@ -484,7 +484,8 @@ void uWS_App_close(args_t args) {
 
 template <typename APP>
 void uWS_App_listen_unix(args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
+
 
     Isolate *isolate = args.GetIsolate();
 
@@ -518,7 +519,7 @@ void uWS_App_listen_unix(args_t args) {
 
 template <typename APP>
 void uWS_App_listen(args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
 
     Isolate *isolate = args.GetIsolate();
 
@@ -560,7 +561,7 @@ void uWS_App_listen(args_t args) {
 
 template <typename APP>
 void uWS_App_filter(args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
 
     /* Handler */
     Callback checkedCallback(args.GetIsolate(), args[0]);
@@ -577,7 +578,7 @@ void uWS_App_filter(args_t args) {
         HandleScope hs(isolate);
 
         Local<Object> resObject = perIsolateData->resTemplate[getAppTypeIndex<APP>()].Get(isolate)->Clone();
-        resObject->SetAlignedPointerInInternalField(0, res);
+        setInternalPointer(resObject, res);
 
         Local<Value> argv[] = {resObject, Local<Value>::Cast(Integer::New(isolate, count))};
         CallJS(isolate, cb.Get(isolate), 2, argv);
@@ -588,7 +589,7 @@ void uWS_App_filter(args_t args) {
 
 template <typename APP>
 void uWS_App_domain(args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
 
     Isolate *isolate = args.GetIsolate();
 
@@ -609,7 +610,7 @@ void uWS_App_domain(args_t args) {
 
 template <typename APP>
 void uWS_App_publish(args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
 
     Isolate *isolate = args.GetIsolate();
 
@@ -635,7 +636,7 @@ void uWS_App_publish(args_t args) {
 
 template <typename APP>
 void uWS_App_numSubscribers(args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
 
     Isolate *isolate = args.GetIsolate();
 
@@ -736,7 +737,7 @@ std::pair<uWS::SocketContextOptions, bool> readOptionsObject(args_t args, int in
 
 template <typename APP>
 void uWS_App_adoptSocket(args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
 
     Isolate *isolate = args.GetIsolate();
 
@@ -754,7 +755,7 @@ void uWS_App_adoptSocket(args_t args) {
 
 template <typename APP>
 void uWS_App_removeChildApp(args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
 
     Isolate *isolate = args.GetIsolate();
 
@@ -770,7 +771,7 @@ void uWS_App_removeChildApp(args_t args) {
 
 template <typename APP>
 void uWS_App_addChildApp(args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
 
     Isolate *isolate = args.GetIsolate();
 
@@ -793,7 +794,7 @@ void uWS_App_addChildApp(args_t args) {
 
 template <typename APP>
 void uWS_App_getDescriptor(args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
 
     Isolate *isolate = args.GetIsolate();
 
@@ -818,7 +819,7 @@ void uWS_App_getDescriptor(args_t args) {
 
 template <typename APP>
 void uWS_App_addServerName(args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
 
     Isolate *isolate = args.GetIsolate();
     NativeString hostnamePatternValue(isolate, args[0]);
@@ -842,7 +843,7 @@ void uWS_App_addServerName(args_t args) {
 
 template <typename APP>
 void uWS_App_removeServerName(args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
 
     Isolate *isolate = args.GetIsolate();
     NativeString hostnamePatternValue(isolate, args[0]);
@@ -861,7 +862,7 @@ void uWS_App_removeServerName(args_t args) {
 
 template <typename APP>
 void uWS_App_missingServerName(args_t args) {
-    APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+    APP *app = (APP *) getInternalPointer(args.This());
     Isolate *isolate = args.GetIsolate();
 
     Global<Function> missingPf;
@@ -939,7 +940,7 @@ void uWS_App(args_t args) {
                 std::cout << "Registering cached get handler" << std::endl;
 
 
-                APP *app = (APP *) args.This()->GetAlignedPointerFromInternalField(0);
+                APP *app = (APP *) getInternalPointer(args.This());
 
                 /* Pattern */
                 NativeString pattern(args.GetIsolate(), args[0]);
@@ -964,16 +965,16 @@ void uWS_App(args_t args) {
 
                     // this needs to be cachedresponse wrapper (for both cached tcp and cached SSL?)
                     Local<Object> resObject = perIsolateData->resTemplate[/*getAppTypeIndex<APP>()*/3].Get(isolate)->Clone();
-                    resObject->SetAlignedPointerInInternalField(0, res);
+                    setInternalPointer(resObject, res);
 
                     Local<Object> reqObject = perIsolateData->reqTemplate[std::is_same<APP, uWS::H3App>::value].Get(isolate)->Clone();
-                    reqObject->SetAlignedPointerInInternalField(0, req);
+                    setInternalPointer(reqObject, req);
 
                     Local<Value> argv[] = {resObject, reqObject};
                     CallJS(isolate, cb.Get(isolate), 2, argv);
 
                     /* Properly invalidate req */
-                    reqObject->SetAlignedPointerInInternalField(0, nullptr);
+                    setInternalPointer(reqObject, nullptr);
 
                     /* µWS itself will terminate if not responded and not attached
                     * onAborted handler, so we can assume it's done */
@@ -1058,7 +1059,7 @@ void uWS_App(args_t args) {
     }
 
     Local<Object> localApp = appTemplate->GetFunction(isolate->GetCurrentContext()).ToLocalChecked()->NewInstance(isolate->GetCurrentContext()).ToLocalChecked();
-    localApp->SetAlignedPointerInInternalField(0, app);
+    setInternalPointer(localApp, app);
 
     PerIsolateData *perIsolateData = (PerIsolateData *) Local<External>::Cast(args.Data())->Value();
 

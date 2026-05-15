@@ -33,7 +33,7 @@ namespace HttpResponseWrapper {
     template <OPTIONS::ENUM Option>
     inline constexpr decltype(auto) getHttpResponse(args_t args) {
         Isolate *isolate = args.GetIsolate();
-        void *res = args.This()->GetAlignedPointerFromInternalField(0);
+        void *res = getInternalPointer(args.This());
         if (!res) {
             args.GetReturnValue().Set(isolate->ThrowException(v8::Exception::Error(String::NewFromUtf8(isolate, "uWS.HttpResponse must not be accessed after uWS.HttpResponse.onAborted callback, or after a successful response. See documentation for uWS.HttpResponse and consult the user manual.", NewStringType::kNormal).ToLocalChecked())));
         }
@@ -50,7 +50,7 @@ namespace HttpResponseWrapper {
 
     /* Marks this JS object invalid */
     inline void invalidateResObject(args_t args) {
-        args.This()->SetAlignedPointerInInternalField(0, nullptr);
+        setInternalPointer(args.This(), nullptr);
     }
 
     /* Takes nothing, returns this */
@@ -233,7 +233,7 @@ namespace HttpResponseWrapper {
             HandleScope hs(isolate);
 
             /* Mark this resObject invalid */
-            Local<Object>::New(isolate, resObject)->SetAlignedPointerInInternalField(0, nullptr);
+            setInternalPointer(resObject.Get(isolate), nullptr);
 
             CallJS(isolate, Local<Function>::New(isolate, p), 0, nullptr);
         });

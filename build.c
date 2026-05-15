@@ -1,4 +1,4 @@
-#include "build-conf.h"
+#include "build.h"
 void nodejs_headers(const char *version) {
   run("curl -sSL \"https://nodejs.org/dist/%s/node-%s-headers.tar.gz\" -o "
       "tmp/node-%s-headers.tar.gz"
@@ -150,7 +150,7 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
       " -DLIBUS_USE_OPENSSL" OPT_FLAGS
       " -c -fPIC -std=c++20 -I ../../uWebSockets/uSockets/src"
       " -I ../../uWebSockets/src"
-      " ../../src/addon.cpp ../../uWebSockets/uSockets/src/crypto/sni_tree.cpp";
+      " ../../src/addon.cpp";
 
   pid_t pids[versionsQuantity];
   for (unsigned int i = 0; i < versionsQuantity; i++) {

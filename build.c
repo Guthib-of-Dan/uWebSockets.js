@@ -159,8 +159,6 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
     pids[i] = fork();
     if (pids[i] == 0) {
       // different abi = no race condition in parallel
-      run("cd tmp/c-%s && %s %s -I ../../targets/node-%s/include/node",
-          versions[i].abi, compiler, c_shared, versions[i].name);
       run("%s -pthread" LINK_FLAGS " tmp/c-%s/*.o %s "
           "-I targets/node-%s/include/node "
           "uWebSockets/uSockets/boringssl/%s/libssl.a "
@@ -177,20 +175,29 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
 }
 #endif
 
-//void a(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const char *arch) {
-//
-//  pid_t pids[versionsQuantity];
-//  for (unsigned int i = 0; i < versionsQuantity; i++) {
-//    pids[i] = fork();
-//    if (pids[i] == 0) {
-//      run("cd tmp/c-%s && %s %s -I ../../targets/node-%s/include/node",
-//          versions[i].abi, compiler, c_shared, versions[i].name);
-//      run("cd tmp/cpp-%s && %s %s -I ../../targets/node-%s/include/node",
-//          versions[i].abi, cpp_compiler, cpp_shared, versions[i].name);
-//      exit(0);
-//    }
-//  }
-//}
+void build_unix_uSockets(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const char *arch) {
+  pid_t pids[versionsQuantity];
+  for (unsigned int i = 0; i < versionsQuantity; i++) {
+    pids[i] = fork();
+    if (pids[i] == 0) {
+  char *c_shared =
+      "-DWIN32_LEAN_AND_MEAN -DLIBUS_USE_LIBUV -DLIBUS_USE_QUIC "
+      " -I ../../uWebSockets/uSockets/lsquic/include "
+      " -I ../../uWebSockets/uSockets/boringssl/include -pthread "
+      " -DLIBUS_USE_OPENSSL" OPT_FLAGS
+      " -c -fPIC -I ../../uWebSockets/uSockets/src "
+      " ../../uWebSockets/uSockets/src/*.c "
+      " ../../uWebSockets/uSockets/src/eventing/*.c "
+      " ../../uWebSockets/uSockets/src/crypto/*.c";
+
+      run("cd tmp/c-%s && %s %s -I ../../targets/node-%s/include/node",
+          versions[i].abi, compiler, c_shared, versions[i].name);
+
+      exit(0);
+    }
+  }
+  for (unsigned int i = 0; i < versionsQuantity; i++) waitpid(pids[i], 0, 0);
+}
 
 #if defined(IS_WINDOWS)
 /* Special case for windows */
@@ -257,7 +264,13 @@ int main(int argc, const char* argv[]) {
     build_boringssl(arch);
     build_lsquic(arch);
 #endif
+    build_unix_uSockets("clang-18",
+          "clang++-18",
+          LINUX_LINK_EXTRAS,
+          OS,
+          arch);
     printf("\n[Finished fetching + compiling dependencies]\n");
+    if (argc > 1) return 0;
   }
 
 #ifdef IS_WINDOWS

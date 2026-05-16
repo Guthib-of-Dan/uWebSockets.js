@@ -15,7 +15,22 @@ int get_cpu_count(void) {
     GetSystemInfo(&sysinfo);
     return (int)sysinfo.dwNumberOfProcessors || 1;
 }
+#define START_FOREACH_NODEJS \
+  for (unsigned int i = 0; i < versionsQuantity; i++) { 
+#define END_FOREACH_NODEJS }
+
 #else // POSIX systems
+
+#define START_FOREACH_NODEJS(i) \
+  pid_t pids[versionsQuantity]; \
+  for (unsigned int i = 0; i < versionsQuantity; i++) { \
+    pids[i] = fork(); \
+    if (pids[i] != 0) continue; 
+
+#define END_FOREACH_NODEJS \
+    exit(0); \
+  } \
+  for (unsigned int i = 0; i < versionsQuantity; i++) waitpid(pids[i], 0, 0);
 
 #include <unistd.h>
 #include <sys/wait.h>

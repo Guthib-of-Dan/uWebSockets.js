@@ -148,24 +148,23 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
       " -DLIBUS_USE_QUIC -I uWebSockets/uSockets/boringssl/include "
       " -DUWS_REMOTE_ADDRESS_USERSPACE"
       " -pthread "
-      " -DLIBUS_USE_OPENSSL" OPT_FLAGS
+      " -DLIBUS_USE_OPENSSL" 
       " -fPIC -std=c++20 -I uWebSockets/uSockets/src"
       " -I uWebSockets/src"
       " src/addon.cpp ";
 
   pid_t pids[versionsQuantity];
   for (unsigned int i = 0; i < versionsQuantity; i++) {
-    // NodeJS versions ~ 4 and GitHub Actions provide 4 threads
     pids[i] = fork();
     if (pids[i] == 0) {
-      // different abi = no race condition in parallel
       run("%s -pthread" LINK_FLAGS " tmp/c-%s/*.o %s "
           "-I targets/node-%s/include/node "
+          "-include-pch targets/node-%s/pch.hpp.pch "
           "uWebSockets/uSockets/boringssl/%s/libssl.a "
           "uWebSockets/uSockets/boringssl/%s/libcrypto.a "
           "uWebSockets/uSockets/lsquic/%s/src/liblsquic/liblsquic.a "
           "-std=c++20 -shared %s -o dist/uws_%s_%s_%s.node",
-          cpp_compiler, versions[i].abi, cpp_shared, versions[i].name, arch, arch, arch,
+          cpp_compiler, versions[i].abi, cpp_shared, versions[i].name, versions[i].name, arch, arch, arch,
           cpp_linker, os, arch, versions[i].abi);
       exit(0);
     }
@@ -189,9 +188,19 @@ void build_unix_uSockets(char *compiler, char *cpp_compiler, char *cpp_linker, c
       " ../../uWebSockets/uSockets/src/*.c "
       " ../../uWebSockets/uSockets/src/eventing/*.c "
       " ../../uWebSockets/uSockets/src/crypto/*.c";
-
+  char *cpp_shared =
+      "-DWIN32_LEAN_AND_MEAN -DUWS_WITH_PROXY -DLIBUS_USE_LIBUV "
+      " -DLIBUS_USE_QUIC -I uWebSockets/uSockets/boringssl/include "
+      " -DUWS_REMOTE_ADDRESS_USERSPACE"
+      " -pthread "
+      " -DLIBUS_USE_OPENSSL" OPT_FLAGS
+      " -fPIC -std=c++20 -I uWebSockets/uSockets/src"
+      " -I uWebSockets/src"
+      " -c src/pch.hpp";
       run("cd tmp/c-%s && %s %s -I ../../targets/node-%s/include/node",
           versions[i].abi, compiler, c_shared, versions[i].name);
+      run("%s %s -I targets/node-%s/include/node -o targets/node-%s/pch.hpp.pch",
+          cpp_compiler, cpp_shared, versions[i].name, versions[i].name);
 
       exit(0);
     }

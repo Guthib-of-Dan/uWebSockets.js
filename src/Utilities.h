@@ -1,15 +1,8 @@
 
 #ifndef ADDON_UTILITIES_H
 #define ADDON_UTILITIES_H
+#include "pch.hpp"
 
-#include <openssl/ssl.h>
-#include <openssl/x509.h>
-
-// this header file contains utilities and is used almost everywhere, so let it be central header-file
-#include "App.h"
-#include "Http3App.h"
-
-#include <v8.h>
 using namespace v8;
 
 // helper to make life easier
@@ -49,8 +42,6 @@ namespace OPTIONS {
     static_assert(Option == ENUM::TCP || Option == ENUM::SSL, "Given option is neither TCP nor SSL");
   }
 }
-/* Unfortunately we _have_ to depend on Node.js crap */
-#include <node.h>
 
 MaybeLocal<Value> CallJS(Isolate *isolate, Local<Function> f, int argc, Local<Value> *argv) {
     extern int calledIntoJS;

@@ -133,17 +133,7 @@ void build_boringssl(const char *arch) {
 /* Build for Unix systems */
 void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const char *arch) {
   printf("\n<-- [Started building uWebSockets.js: %s] -->\n", arch);
-  char *c_shared =
-      "-DWIN32_LEAN_AND_MEAN -DLIBUS_USE_LIBUV -DLIBUS_USE_QUIC "
-      " -I ../../uWebSockets/uSockets/lsquic/include "
-      " -I ../../uWebSockets/uSockets/boringssl/include -pthread "
-      " -DLIBUS_USE_OPENSSL" OPT_FLAGS
-      " -c -fPIC -I ../../uWebSockets/uSockets/src "
-      " ../../uWebSockets/uSockets/src/*.c "
-      " ../../uWebSockets/uSockets/src/eventing/*.c "
-      " ../../uWebSockets/uSockets/src/crypto/*.c";
-
-  char *cpp_shared =
+  char *compile_addon =
       "-DWIN32_LEAN_AND_MEAN -DUWS_WITH_PROXY -DLIBUS_USE_LIBUV "
       " -DLIBUS_USE_QUIC -I uWebSockets/uSockets/boringssl/include "
       " -DUWS_REMOTE_ADDRESS_USERSPACE"
@@ -156,18 +146,18 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
   pid_t pids[versionsQuantity];
   for (unsigned int i = 0; i < versionsQuantity; i++) {
     pids[i] = fork();
-    if (pids[i] == 0) {
-      run("%s -pthread" LINK_FLAGS " tmp/c-%s/*.o %s "
-          "-I targets/node-%s/include/node "
-          "-include-pch targets/node-%s/pch.hpp.pch "
-          "uWebSockets/uSockets/boringssl/%s/libssl.a "
-          "uWebSockets/uSockets/boringssl/%s/libcrypto.a "
-          "uWebSockets/uSockets/lsquic/%s/src/liblsquic/liblsquic.a "
-          "-std=c++20 -shared %s -o dist/uws_%s_%s_%s.node",
-          cpp_compiler, versions[i].abi, cpp_shared, versions[i].name, versions[i].name, arch, arch, arch,
-          cpp_linker, os, arch, versions[i].abi);
-      exit(0);
-    }
+    if (pids[i] != 0) continue;
+
+    run("%s -pthread" LINK_FLAGS " tmp/c-%s/*.o %s "
+        "-I targets/node-%s/include/node "
+        "-include-pch targets/node-%s/pch.hpp.pch "
+        "uWebSockets/uSockets/boringssl/%s/libssl.a "
+        "uWebSockets/uSockets/boringssl/%s/libcrypto.a "
+        "uWebSockets/uSockets/lsquic/%s/src/liblsquic/liblsquic.a "
+        "-shared %s -o dist/uws_%s_%s_%s.node",
+        cpp_compiler, versions[i].abi, compile_addon, versions[i].name, versions[i].name, arch, arch, arch,
+        cpp_linker, os, arch, versions[i].abi);
+    exit(0);
   }
   for (unsigned int i = 0; i < versionsQuantity; i++) waitpid(pids[i], 0, 0);
   printf("\n[Finished building uWebSockets.js: %s]\n", arch);
@@ -201,7 +191,6 @@ void build_unix_uSockets(char *compiler, char *cpp_compiler, char *cpp_linker, c
           versions[i].abi, compiler, c_shared, versions[i].name);
       run("%s %s -I targets/node-%s/include/node -o targets/node-%s/pch.hpp.pch",
           cpp_compiler, cpp_shared, versions[i].name, versions[i].name);
-
       exit(0);
     }
   }

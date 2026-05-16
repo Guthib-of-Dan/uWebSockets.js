@@ -51,8 +51,8 @@ int get_cpu_count(void) {
 #define OS "darwin"
 #define IS_MACOS
 #if defined(CROSS_COMPILE_MACOS)
-#define C_COMPILER ""
-#define CXX_COMPILER ""
+#define C_COMPILER "clang -target x86_64-apple-macos12"
+#define CXX_COMPILER "clang++ -target x86_64-apple-macos12"
 #else
 #define C_COMPILER "clang -target arm64-apple-macos12"
 #define CXX_COMPILER "clang++ -target arm64-apple-macos12"

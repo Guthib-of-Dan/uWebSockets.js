@@ -39,20 +39,25 @@ jobs:
         id: submodules
         uses: actions/cache@v5
         with:
-          path: uWebSockets
-          key: sub-${{ matrix.os }}-${{ matrix.arch }}-${{ hashFiles('submodules.txt') }}
+          path: |
+            uWebSockets
+            targets
+          # checks for submodule updates + checks for changed NodeJS targets 
+          key: sub-${{ matrix.os }}-${{ matrix.arch }}-${{ hashFiles('submodules.txt', 'build.h') }}
 
-      - name: Fetch submodules
+      - name: Prepare submodules
         if: steps.submodules.outputs.cache-hit != 'true'
         shell: bash
         run: |
 
           # only latest states
           git submodule update --init --recursive --depth 1
+          ${{ matrix.os == 'win32' && 'nmake prepare && nmake build-deps' || 'make prepare && make build-deps' }}
+
 
       - name: Compile binaries 
         run: |
-          ${{ matrix.os == 'win32' && 'nmake' || 'make' }}
+          ${{ matrix.os == 'win32' && 'nmake build-proj' || 'make build-proj' }}
           ls dist
 
       - name: Save results
@@ -94,7 +99,7 @@ jobs:
       fail-fast: false
       matrix:
         runner: [windows-latest, macos-15, ubuntu-24.04, ubuntu-24.04-arm]
-        node: [20, 22, 24, 25]
+        node: [22, 24, 26]
         include:
           - runner: windows-latest
             os: win32

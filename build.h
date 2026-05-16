@@ -55,7 +55,7 @@ int get_cpu_count(void) {
 #define CXX_COMPILER ""
 #else
 #define C_COMPILER "clang -target arm64-apple-macos12"
-#defined CXX_COMPILER "clang++ -target arm64-apple-macos12"
+#define CXX_COMPILER "clang++ -target arm64-apple-macos12"
 #endif
 #endif
 

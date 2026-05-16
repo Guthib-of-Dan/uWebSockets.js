@@ -89,9 +89,9 @@ const char *X64 = "x64";
 #if defined(CROSS_COMPILE_MACOS)
 #define ARCH X64
 #elif defined(__arm__)
-#define ARCH ARM;
+#define ARCH ARM
 #elif defined(__aarch64__)
-#define ARCH ARM64;
+#define ARCH ARM64
 #else
 #define ARCH X64
 #endif

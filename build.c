@@ -34,9 +34,9 @@ void prepare() {
     }
 
     printf("\n<-- [Installing NodeJS headers] -->\n");
-    START_FOREACH_NODEJS(i)
+    START_FOREACH_NODEJS(i);
       nodejs_headers(versions[i].name);
-    END_FOREACH_NODEJS
+    END_FOREACH_NODEJS;
     printf("[Fetched NodeJS headers v22,v24,v26]\n");
 }
 
@@ -70,8 +70,8 @@ void build_lsquic(const char *arch) {
       " -DCMAKE_BUILD_TYPE=Release"
       " -DLSQUIC_BIN=Off"
       " && ninja -j%i lsquic", threads_quantity);
-
   printf("\n[Finished building lsquic: %s]\n", arch);
+#undef MACRO
 }
 
 void build_boringssl(const char *arch) {
@@ -97,8 +97,9 @@ void build_boringssl(const char *arch) {
       " -DCMAKE_POSITION_INDEPENDENT_CODE=ON"
       " && ninja -j%i crypto ssl", 
       threads_quantity);
-
   printf("\n[Finished building boringssl: %s]\n", arch);
+
+#undef MACRO
 }
 
 void build_uSockets_and_PCH(char *compiler, char *cpp_compiler) {
@@ -125,7 +126,7 @@ void build_uSockets_and_PCH(char *compiler, char *cpp_compiler) {
 #define UNIX_MACRO ""
 #endif
 
-  START_FOREACH_NODEJS(i)
+  START_FOREACH_NODEJS(i);
   run("cd tmp/c-%s && %s" SHARED_MACRO UNIX_MACRO OPT_FLAGS SHARED_INCLUDE("../../", "%s")
       " -c ../../uWebSockets/uSockets/src/*.c "
       " ../../uWebSockets/uSockets/src/eventing/*.c "
@@ -137,7 +138,7 @@ void build_uSockets_and_PCH(char *compiler, char *cpp_compiler) {
         "-std=c++20 -c src/pch.hpp -o targets/node-%s/pch.hpp.pch",
 
       cpp_compiler, versions[i].name, versions[i].name);
-  END_FOREACH_NODEJS
+  END_FOREACH_NODEJS;
 
 #undef SHARED_MACRO
 #undef SHARED_INCLUDE
@@ -172,7 +173,7 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
 #endif
 
 /* Build for Unix systems */
-  START_FOREACH_NODEJS(i)
+  START_FOREACH_NODEJS(i);
     run("%s" OPT_FLAGS SHARED_MACRO SHARED_INCLUDE("%s")
         UNIX_MACRO
         " -std=c++20 "
@@ -185,7 +186,7 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
         cpp_compiler, versions[i].name,
         versions[i].name,
         cpp_linker, versions[i].abi, os, arch, versions[i].abi);
-  END_FOREACH_NODEJS
+  END_FOREACH_NODEJS;
 
   printf("\n[Finished building uWebSockets.js: %s]\n", arch);
 
@@ -267,16 +268,7 @@ int main(int argc, const char* argv[]) {
           "-ladvapi32",
           OS,
           X64);
-#else
-#ifdef IS_MACOS
-
-    /* Apple special case */
-    build("clang -target x86_64-apple-macos12",
-          "clang++ -stdlib=libc++ -target x86_64-apple-macos12",
-          "-undefined dynamic_lookup" MACOS_LINK_EXTRAS,
-          OS,
-          X64);
-
+#elif defined(IS_MACOS)
     /* Try and build for arm64 macOS 12 */
     build("clang -target arm64-apple-macos12",
           "clang++ -stdlib=libc++ -target arm64-apple-macos12",
@@ -291,6 +283,5 @@ int main(int argc, const char* argv[]) {
           LINUX_LINK_EXTRAS,
           OS,
           arch);
-#endif
 #endif
 }

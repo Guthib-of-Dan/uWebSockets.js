@@ -44,12 +44,10 @@ int get_cpu_count(void) {
  * MACOS_LINK_EXTRAS: appended after "-undefined dynamic_lookup", so ASAN variant starts with a space. */
 #ifdef WITH_ASAN
 #define OPT_FLAGS " -fsanitize=address -fno-omit-frame-pointer -g -O1"
-#define LINK_FLAGS " -fsanitize=address"
 #define LINUX_LINK_EXTRAS "-fsanitize=address"
 #define MACOS_LINK_EXTRAS " -fsanitize=address"
 #else
 #define OPT_FLAGS " -flto -O3"
-#define LINK_FLAGS " -flto -O3"
 #define LINUX_LINK_EXTRAS "-static-libstdc++ -static-libgcc -s"
 #define MACOS_LINK_EXTRAS ""
 #endif

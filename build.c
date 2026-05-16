@@ -148,7 +148,7 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
     pids[i] = fork();
     if (pids[i] != 0) continue;
 
-    run("%s -pthread" LINK_FLAGS " tmp/c-%s/*.o %s "
+    run("%s -pthread" OPT_FLAGS " tmp/c-%s/*.o %s "
         "-I targets/node-%s/include/node "
         "-include-pch targets/node-%s/pch.hpp.pch "
         "uWebSockets/uSockets/boringssl/%s/libssl.a "
@@ -262,8 +262,8 @@ int main(int argc, const char* argv[]) {
     build_boringssl(arch);
     build_lsquic(arch);
 #endif
-    build_unix_uSockets("clang-18",
-          "clang++-18",
+    build_unix_uSockets("clang",
+          "clang++",
           LINUX_LINK_EXTRAS,
           OS,
           arch);
@@ -297,8 +297,8 @@ int main(int argc, const char* argv[]) {
 
 #else
     /* Linux does not cross-compile but picks whatever arch the host is on (we run on both x64 and ARM64) */
-    build("clang-18",
-          "clang++-18",
+    build("clang",
+          "clang++",
           LINUX_LINK_EXTRAS,
           OS,
           arch);

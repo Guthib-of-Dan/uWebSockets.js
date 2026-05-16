@@ -11,15 +11,23 @@ jobs:
           - runner: windows-latest
             os: win32
             arch: x64
+            make: nmake
           - runner: macos-15
             os: darwin
             arch: arm64
+            make: make
+          - runner: macos-15
+            os: darwin
+            arch: x64 # This is a lie, but for cross-compilation
+            make: make
           - runner: ubuntu-24.04
             os: linux
             arch: x64
+            make: make
           - runner: ubuntu-24.04-arm
             os: linux
             arch: arm64 
+            make: make
 
     runs-on: ${{ matrix.runner }}
     steps:
@@ -52,12 +60,16 @@ jobs:
 
           # only latest states
           git submodule update --init --recursive --depth 1
-          ${{ matrix.os == 'win32' && 'nmake prepare && nmake build-deps' || 'make prepare && make build-deps' }}
 
+          ${{ 
+            (matrix.os != 'macos-15' || matrix.arch != 'x64') 
+            && format('{0} prepare', matrix.make) 
+            || 'make prepare-macos-x64' 
+          }}
 
       - name: Compile binaries 
         run: |
-          ${{ matrix.os == 'win32' && 'nmake build-proj' || 'make build-proj' }}
+          ${{ matrix.make }} build-proj
           ls dist
 
       - name: Save results

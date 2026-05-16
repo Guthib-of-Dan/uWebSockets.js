@@ -4,7 +4,7 @@ all:
 prepare:
 	gcc build.c -o build.exe
 prepare-macos-x64:
-	gcc build.c -D__aarch64__ -o build.exe
+	gcc build.c -DCROSS_COMPILE_MACOS -o build.exe
 build-deps:
 	./build.exe deps || .\build.exe deps
 build-proj:

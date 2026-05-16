@@ -35,7 +35,7 @@ jobs:
         if: matrix.os == 'win32'
         uses: ilammy/msvc-dev-cmd@v1
       - name: Setup NASM for Windows
-        if: matrix.ps == 'win32'
+        if: matrix.os == 'win32'
         uses: ilammy/setup-nasm@v1.2.1
       
       - name: Export submodules.txt as a state for cached dependencies
@@ -50,8 +50,8 @@ jobs:
           path: |
             uWebSockets
             targets
-          # checks for submodule updates + checks for changed NodeJS targets 
-          key: sub-${{ matrix.os }}-${{ matrix.arch }}-${{ hashFiles('submodules.txt', 'build.h') }}
+          # checks for submodule updates, compiler changes, updated NodeJS targets 
+          key: sub-${{ matrix.os }}-${{ matrix.arch }}-${{ hashFiles('submodules.txt', 'build.h', 'build.c') }}
 
       - name: Prepare submodules
         if: steps.submodules.outputs.cache-hit != 'true'
@@ -66,6 +66,7 @@ jobs:
             && format('{0} prepare', matrix.make) 
             || 'make prepare-macos-x64' 
           }}
+          ${{ matrix.make }} build-deps
 
       - name: Compile binaries 
         run: |

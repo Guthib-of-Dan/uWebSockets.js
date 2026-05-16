@@ -62,7 +62,7 @@ jobs:
           git submodule update --init --recursive --depth 1
 
           ${{ 
-            (matrix.os != 'macos-15' || matrix.arch != 'x64') 
+            (matrix.runner != 'macos-15' || matrix.arch != 'x64') 
             && format('{0} prepare', matrix.make) 
             || 'make prepare-macos-x64' 
           }}
@@ -79,13 +79,6 @@ jobs:
           name: binaries-${{ matrix.os }}-${{ matrix.arch }}
           path: dist/*${{ matrix.arch }}*.node
 
-      - name: Save results for MacOS x64
-        if: matrix.runner == 'macos-15'
-        uses: actions/upload-artifact@v7
-        with:
-          name: binaries-${{ matrix.os }}-x64
-          path: dist/*x64*.node
-
       - name: Compile ASAN binaries
         if: matrix.os != 'win32'
         run: |
@@ -93,18 +86,13 @@ jobs:
           rm dist/*.node
           make prebuilt-asan
           ls dist
+
       - name: Save ASAN Binaries
         if: matrix.os != 'win32'
         uses: actions/upload-artifact@v7
         with:
           name: binaries-asan-${{ matrix.os }}-${{ matrix.arch }}
           path: dist/*${{ matrix.arch }}*.node
-      - name: Save ASAN Binaries for MacOS x64
-        if: matrix.runner == 'macos-15'
-        uses: actions/upload-artifact@v7
-        with:
-          name: binaries-asan-${{ matrix.os }}-x64
-          path: dist/*x64*.node
 
   test: 
     needs: build

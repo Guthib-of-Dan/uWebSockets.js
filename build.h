@@ -7,7 +7,9 @@
 #if defined(_WIN32)
 #define OS "win32"
 #define IS_WINDOWS
-// this macro suppresses Windows warning about "secure" deprecations, which only Windows cares about
+#define C_COMPILER "clang -fms-runtime-lib=static"
+#define CXX_COMPILER "clang++ -fms-runtime-lib=static"
+// suppress Windows "secure" deprecations
 // #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 int get_cpu_count(void) {
@@ -40,17 +42,30 @@ int get_cpu_count(void) {
 }
 
 #if defined(__linux)
-
 #define OS "linux"
 #define IS_LINUX
+#define C_COMPILER "clang"
+#define CXX_COMPILER "clang++"
 
 #elif defined(__APPLE__)
 #define OS "darwin"
 #define IS_MACOS
+#if defined(CROSS_COMPILE_MACOS)
+#define C_COMPILER ""
+#define CXX_COMPILER ""
+#else
+#define C_COMPILER "clang -target arm64-apple-macos12"
+#defined CXX_COMPILER "clang++ -target arm64-apple-macos12"
+#endif
 #endif
 
 #endif
 
+
+#if defined(IS_MACOS)
+#elif defined(IS_LINUX)
+#else
+#endif
 
 
 /* ASAN vs. optimized build flags (used via C string literal concatenation).
@@ -70,6 +85,16 @@ int get_cpu_count(void) {
 const char *ARM = "arm";
 const char *ARM64 = "arm64";
 const char *X64 = "x64";
+
+#if defined(CROSS_COMPILE_MACOS)
+#define ARCH X64
+#elif defined(__arm__)
+#define ARCH ARM;
+#elif defined(__aarch64__)
+#define ARCH ARM64;
+#else
+#define ARCH X64
+#endif
 
 /* System, but with string replace */
 int run(const char *cmd, ...) {

@@ -40,8 +40,8 @@ void prepare() {
     printf("[Fetched NodeJS headers v22,v24,v26]\n");
 }
 
-void build_lsquic(const char *arch) {
-  printf("\n<-- [Started building lsquic: %s] -->\n", arch);
+void build_lsquic() {
+  printf("\n<-- [Started building lsquic] -->\n");
     
 #if defined(IS_LINUX)
 #define MACRO " "
@@ -70,12 +70,12 @@ void build_lsquic(const char *arch) {
       " -DCMAKE_BUILD_TYPE=Release"
       " -DLSQUIC_BIN=Off"
       " && ninja -j%i lsquic", threads_quantity);
-  printf("\n[Finished building lsquic: %s]\n", arch);
+  printf("\n[Finished building lsquic]\n");
 #undef MACRO
 }
 
-void build_boringssl(const char *arch) {
-  printf("\n<-- [Started building boringssl: %s] -->\n", arch);
+void build_boringssl() {
+  printf("\n<-- [Started building boringssl] -->\n");
 
 #if defined(IS_MACOS)
 
@@ -97,12 +97,12 @@ void build_boringssl(const char *arch) {
       " -DCMAKE_POSITION_INDEPENDENT_CODE=ON"
       " && ninja -j%i crypto ssl", 
       threads_quantity);
-  printf("\n[Finished building boringssl: %s]\n", arch);
+  printf("\n[Finished building boringssl: %s]\n", ARCH);
 
 #undef MACRO
 }
 
-void build_uSockets_and_PCH(char *compiler, char *cpp_compiler) {
+void build_uSockets_and_PCH() {
 
 #define SHARED_MACRO \
   " -DUWS_WITH_PROXY" \
@@ -127,17 +127,17 @@ void build_uSockets_and_PCH(char *compiler, char *cpp_compiler) {
 #endif
 
   START_FOREACH_NODEJS(i);
-  run("cd tmp/c-%s && %s" SHARED_MACRO UNIX_MACRO OPT_FLAGS SHARED_INCLUDE("../../", "%s")
+  run("cd tmp/c-%s && " C_COMPILER SHARED_MACRO UNIX_MACRO OPT_FLAGS SHARED_INCLUDE("../../", "%s")
       " -c ../../uWebSockets/uSockets/src/*.c "
       " ../../uWebSockets/uSockets/src/eventing/*.c "
       " ../../uWebSockets/uSockets/src/crypto/*.c",
 
-      versions[i].abi, compiler, versions[i].name);
+      versions[i].abi, versions[i].name);
 
-  run("%s" SHARED_MACRO UNIX_MACRO OPT_FLAGS SHARED_INCLUDE("./", "%s")
+  run(CXX_COMPILER SHARED_MACRO UNIX_MACRO OPT_FLAGS SHARED_INCLUDE("./", "%s")
         "-std=c++20 -c src/pch.hpp -o targets/node-%s/pch.hpp.pch",
 
-      cpp_compiler, versions[i].name, versions[i].name);
+      versions[i].name, versions[i].name);
   END_FOREACH_NODEJS;
 
 #undef SHARED_MACRO
@@ -145,8 +145,8 @@ void build_uSockets_and_PCH(char *compiler, char *cpp_compiler) {
 #undef UNIX_MACRO
 }
 
-void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const char *arch) {
-  printf("\n<-- [Started building uWebSockets.js: %s] -->\n", arch);
+void build(char *special_options) {
+  printf("\n<-- [Started building uWebSockets.js] -->\n");
 
 #define SHARED_MACRO \
   " -DUWS_WITH_PROXY" \
@@ -174,7 +174,7 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
 
 /* Build for Unix systems */
   START_FOREACH_NODEJS(i);
-    run("%s" OPT_FLAGS SHARED_MACRO SHARED_INCLUDE("%s")
+    run(CXX_COMPILER OPT_FLAGS SHARED_MACRO SHARED_INCLUDE("%s")
         UNIX_MACRO
         " -std=c++20 "
         " -include-pch targets/node-%s/pch.hpp.pch "
@@ -183,12 +183,11 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
         STATIC_LIB("uWebSockets/uSockets/lsquic/src/liblsquic/liblsquic")
         " -shared %s ./tmp/c-%s/*.o src/addon.cpp -o dist/uws_%s_%s_%s.node",
 
-        cpp_compiler, versions[i].name,
-        versions[i].name,
-        cpp_linker, versions[i].abi, os, arch, versions[i].abi);
+        versions[i].name, versions[i].name,
+        special_options, versions[i].abi, OS, ARCH, versions[i].abi);
   END_FOREACH_NODEJS;
 
-  printf("\n[Finished building uWebSockets.js: %s]\n", arch);
+  printf("\n[Finished building uWebSockets.js]\n");
 
 #undef SHARED_MACRO
 #undef SHARED_INCLUDE
@@ -196,92 +195,29 @@ void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const
 #undef STATIC_LIB
 }
 
-
-#if defined(IS_WINDOWS)
-/* Special case for windows */
-void build(char *compiler, char *cpp_compiler, char *cpp_linker, char *os, const char *arch) {
-  printf("\n<-- [Building uWebSockets.js] -->\n");
-  char *c_shared =
-      "-DWIN32_LEAN_AND_MEAN -DLIBUS_USE_LIBUV -DLIBUS_USE_QUIC "
-      "-I../../uWebSockets/uSockets/lsquic/include "
-      "-I../../uWebSockets/uSockets/lsquic/wincompat "
-      "-I../../uWebSockets/uSockets/boringssl/include -DLIBUS_USE_OPENSSL -O3 -c "
-      "-I../../uWebSockets/uSockets/src ../../uWebSockets/uSockets/src/*.c "
-      "../../uWebSockets/uSockets/src/eventing/*.c "
-      "../../uWebSockets/uSockets/src/crypto/*.c";
-  char *cpp_shared =
-      "-DWIN32_LEAN_AND_MEAN -DUWS_WITH_PROXY -DLIBUS_USE_LIBUV "
-      "-DLIBUS_USE_QUIC -I../../uWebSockets/uSockets/lsquic/include "
-      "-DUWS_REMOTE_ADDRESS_USERSPACE "
-      "-I../../uWebSockets/uSockets/lsquic/wincompat "
-      "-I../../uWebSockets/uSockets/boringssl/include -DLIBUS_USE_OPENSSL -O3 -c "
-      "-std=c++20 -I../../uWebSockets/uSockets/src -I../../uWebSockets/src ../../src/addon.cpp "
-      "../../uWebSockets/uSockets/src/crypto/sni_tree.cpp";
-
-  for (unsigned int i = 0; i < versionsQuantity; i++) {
-    run("cd \"tmp\\c-%s\" && %s %s -I../../targets/node-%s/include/node", versions[i].abi, compiler, c_shared,
-        versions[i].name);
-    run("cd \"tmp\\cpp-%s\" && %s %s -I../../targets/node-%s/include/node", versions[i].abi, cpp_compiler, cpp_shared,
-        versions[i].name);
-    run("%s -O3 " " ./tmp/c-%s/*.o ./tmp/cpp-%s/*.o " "./uWebSockets/uSockets/boringssl/%s/ssl.lib "
-        "./uWebSockets/uSockets/boringssl/%s/crypto.lib "
-        "./uWebSockets/uSockets/lsquic/src/liblsquic/Debug/lsquic.lib "
-        "./targets/node-%s/node.lib -ladvapi32 -std=c++20 -shared -o dist/uws_win32_%s_%s.node ", cpp_compiler, versions[i].abi, versions[i].abi,
-        arch, arch, versions[i].name, arch, versions[i].abi);
-  }
-  printf("\n[Finished building uWebSockets.js]\n");
-}
-#endif
-
 int main(int argc, const char* argv[]) {
     threads_quantity = get_cpu_count();
     printf("<-- ENTRY POINT!!! -->\n[Parallel threads available: %i]\n", threads_quantity);
     
-    const char *arch = X64;
-
-#if !defined(CROSS_COMPILE_MACOS)
-
-#if defined(__arm__)
-    arch = ARM;
-#elif defined(__aarch64__)
-    arch = ARM64;
-#endif
-
-#endif
-
-
-
   if(argc == 1 || argc > 1 && !strcmp(argv[1], "deps")) {
     printf("<--[Fetching + Compiling dependencies]-->\n");
     prepare();
     /* for MacOS we compile one architecture at a time */
-    build_boringssl(arch);
-    build_lsquic(arch);
-    build_uSockets_and_PCH("clang", "clang++");
+    build_boringssl();
+    build_lsquic();
+    build_uSockets_and_PCH();
     printf("\n[Finished fetching + compiling dependencies]\n");
     if (argc > 1) return 0;
   }
 
 #ifdef IS_WINDOWS
-    build_windows("clang -fms-runtime-lib=static",
-          "clang++ -fms-runtime-lib=static",
-          "-ladvapi32",
-          OS,
-          X64);
+
+    build("-ladvapi32");
 #elif defined(IS_MACOS)
-    /* Try and build for arm64 macOS 12 */
-    build("clang -target arm64-apple-macos12",
-          "clang++ -stdlib=libc++ -target arm64-apple-macos12",
-          "-undefined dynamic_lookup" MACOS_LINK_EXTRAS,
-          OS,
-          ARM64);
+    build("-undefined dynamic_lookup" MACOS_LINK_EXTRAS);
 
 #else
     /* Linux does not cross-compile but picks whatever arch the host is on (we run on both x64 and ARM64) */
-    build("clang",
-          "clang++",
-          LINUX_LINK_EXTRAS,
-          OS,
-          arch);
+    build(LINUX_LINK_EXTRAS);
 #endif
 }

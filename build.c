@@ -35,7 +35,6 @@ void setup_nodejs_targets() {
 void build_lsquic() {
   printf("\n<-- [Started building lsquic] -->\n");
     
-#if !defined(IS_WINDOWS)
 #if defined(IS_LINUX)
 #define MACRO " "
 #define BUILD_SYSTEM " -G Ninja && ninja -j%i lsquic"
@@ -47,15 +46,15 @@ void build_lsquic() {
 #define MACRO " -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_OSX_ARCHITECTURES=arm64 -DBORINGSSL_DIR=../boringssl "
 #endif
 
-//#elif defined(IS_WINDOWS)
-//    /* Download zlib */
-//    run("curl -sSOL https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz");
-//    run("tar xzf zlib-1.3.1.tar.gz");
-//#define MACRO " -DCMAKE_C_FLAGS=\"/Wv:18 /DWIN32 /wd4201 /I..\\..\\..\\zlib-1.3.1\"" \
-//    " -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++" \
-//    " -DZLIB_INCLUDE_DIR=..\\..\\..\\zlib-1.3.1" \
-//    " -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded "
-//#define BUILD_SYSTEM " && msbuild ALL_BUILD.vcxproj"
+#elif defined(IS_WINDOWS)
+    /* Download zlib */
+    run("curl -sSOL https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz");
+    run("tar xzf zlib-1.3.1.tar.gz");
+#define MACRO " -DCMAKE_C_FLAGS=\"/Wv:18 /DWIN32 /wd4201 /I..\\..\\..\\zlib-1.3.1\"" \
+    " -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++" \
+    " -DZLIB_INCLUDE_DIR=..\\..\\..\\zlib-1.3.1" \
+    " -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded "
+#define BUILD_SYSTEM " && msbuild ALL_BUILD.vcxproj"
 #endif
 
   run("cd uWebSockets/uSockets/lsquic &&"
@@ -66,7 +65,6 @@ void build_lsquic() {
 
 #undef MACRO
 #undef BUILD_SYSTEM
-#endif
   printf("\n[Finished building lsquic]\n");
 }
 
@@ -203,8 +201,16 @@ int main(int argc, const char* argv[]) {
     printf("<--[Fetching + Compiling dependencies]-->\n");
     setup_nodejs_targets();
     /* for MacOS we compile one architecture at a time */
+
+    /* Windows does not really compile with lsquic */
+#if defined(IS_WINDOWS)
+    build_lsquic();
+    build_boringssl();
+#else
     build_boringssl();
     build_lsquic();
+#endif
+
     build_uSockets_and_PCH();
     printf("\n[Finished fetching + compiling dependencies]\n");
     if (argc > 1) return 0;

@@ -37,9 +37,9 @@ void build_lsquic() {
     
 #if defined(IS_LINUX)
 #define MACRO " "
-#define BUILD_SYSTEM "-G Ninja && ninja -j%i lsquic"
+#define BUILD_SYSTEM " -G Ninja && ninja -j%i lsquic"
 #elif defined (IS_MACOS)
-#define BUILD_SYSTEM "-G Ninja && ninja -j%i lsquic"
+#define BUILD_SYSTEM " -G Ninja && ninja -j%i lsquic"
 #if defined(CROSS_COMPILE_MACOS)
 #define MACRO " -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_OSX_ARCHITECTURES=x86_64 "
 #else

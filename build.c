@@ -52,8 +52,8 @@ void build_lsquic() {
     /* Download zlib */
     run("curl -sSOL https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz");
     run("tar xzf zlib-1.3.1.tar.gz");
-#define MACRO " -DCMAKE_C_FLAGS=\"-DWIN32 -Wno-language-extension-token -I../../../zlib-1.3.1\" " \
-    " -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++" \
+#define MACRO " -DCMAKE_C_FLAGS=\"/Wv:18 /DWIN32 /wd4201 /I..\\..\\..\\zlib-1.3.1\"" \
+    " -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl" \
     " -DZLIB_INCLUDE_DIR=../../../zlib-1.3.1" \
     " -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded "
 #endif

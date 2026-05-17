@@ -41,9 +41,9 @@ void build_lsquic() {
 #elif defined (IS_MACOS)
 #define BUILD_SYSTEM " -G Ninja && ninja -j%i lsquic"
 #if defined(CROSS_COMPILE_MACOS)
-#define MACRO " -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_OSX_ARCHITECTURES=x86_64 -DBORINGSSL_DIR=../boringssl "  
+#define MACRO " -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_OSX_ARCHITECTURES=x86_64 "  
 #else
-#define MACRO " -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_OSX_ARCHITECTURES=arm64 -DBORINGSSL_DIR=../boringssl "
+#define MACRO " -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_OSX_ARCHITECTURES=arm64 "
 #endif
 
 #elif defined(IS_WINDOWS)
@@ -59,6 +59,7 @@ void build_lsquic() {
 
   run("cd uWebSockets/uSockets/lsquic &&"
       " cmake . " MACRO
+      " -DBORINGSSL_DIR=../boringssl"
       " -DCMAKE_POSITION_INDEPENDENT_CODE=ON"
       " -DCMAKE_BUILD_TYPE=Release"
       " -DLSQUIC_BIN=Off" BUILD_SYSTEM, threads_quantity);

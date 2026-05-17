@@ -35,6 +35,7 @@ void setup_nodejs_targets() {
 void build_lsquic() {
   printf("\n<-- [Started building lsquic] -->\n");
     
+#if !defined(IS_WINDOWS)
 #if defined(IS_LINUX)
 #define MACRO " "
 #define BUILD_SYSTEM " -G Ninja && ninja -j%i lsquic"
@@ -46,15 +47,15 @@ void build_lsquic() {
 #define MACRO " -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_OSX_ARCHITECTURES=arm64 -DBORINGSSL_DIR=../boringssl "
 #endif
 
-#elif defined(IS_WINDOWS)
-    /* Download zlib */
-    run("curl -sSOL https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz");
-    run("tar xzf zlib-1.3.1.tar.gz");
-#define MACRO " -DCMAKE_C_FLAGS=\"/Wv:18 /DWIN32 /wd4201 /I..\\..\\..\\zlib-1.3.1\"" \
-    " -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++" \
-    " -DZLIB_INCLUDE_DIR=..\\..\\..\\zlib-1.3.1" \
-    " -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded "
-#define BUILD_SYSTEM " && msbuild ALL_BUILD.vcxproj"
+//#elif defined(IS_WINDOWS)
+//    /* Download zlib */
+//    run("curl -sSOL https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz");
+//    run("tar xzf zlib-1.3.1.tar.gz");
+//#define MACRO " -DCMAKE_C_FLAGS=\"/Wv:18 /DWIN32 /wd4201 /I..\\..\\..\\zlib-1.3.1\"" \
+//    " -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++" \
+//    " -DZLIB_INCLUDE_DIR=..\\..\\..\\zlib-1.3.1" \
+//    " -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded "
+//#define BUILD_SYSTEM " && msbuild ALL_BUILD.vcxproj"
 #endif
 
   run("cd uWebSockets/uSockets/lsquic &&"
@@ -62,10 +63,11 @@ void build_lsquic() {
       " -DCMAKE_POSITION_INDEPENDENT_CODE=ON"
       " -DCMAKE_BUILD_TYPE=Release"
       " -DLSQUIC_BIN=Off" BUILD_SYSTEM, threads_quantity);
-  printf("\n[Finished building lsquic]\n");
 
 #undef MACRO
 #undef BUILD_SYSTEM
+#endif
+  printf("\n[Finished building lsquic]\n");
 }
 
 void build_boringssl() {
@@ -104,6 +106,7 @@ void build_uSockets_and_PCH() {
   " -DLIBUS_USE_LIBUV" \
   " -DLIBUS_USE_OPENSSL " \
   " -DWIN32_LEAN_AND_MEAN" \
+  " -D_CRT_SECURE_NO_WARNINGS" \
   " -DUWS_REMOTE_ADDRESS_USERSPACE" 
 
 #define SHARED_INCLUDE(CWD, node_version) \
@@ -170,7 +173,7 @@ void build(char *special_options) {
   START_FOREACH_NODEJS(i);
     run(CXX_COMPILER OPT_FLAGS SHARED_MACRO SHARED_INCLUDE("%s")
         UNIX_MACRO
-        " -std=c++20 "
+        " -std=c++20"
         " -include-pch targets/node-%s/pch.hpp.pch "
         STATIC_LIB("uWebSockets/uSockets/boringssl", "ssl")
         STATIC_LIB("uWebSockets/uSockets/boringssl", "crypto")

@@ -1,42 +1,37 @@
 #include "build.h"
-void nodejs_headers(const char *version) {
-  run("curl -sSL \"https://nodejs.org/dist/%s/node-%s-headers.tar.gz\" -o "
-      "tmp/node-%s-headers.tar.gz"
-      " && "
-      "tar xzf tmp/node-%s-headers.tar.gz -C targets",
-      version, version, version, version);
-  run(
-      /*fetch v8 fast-api manually*/
-      "curl -sSfL "
-      "\"https://raw.githubusercontent.com/nodejs/node/%s/deps/v8/include/"
-      "v8-fast-api-calls.h\" -o "
-      "\"targets/node-%s/include/node/v8-fast-api-calls.h\"",
-      version, version);
+void setup_single_nodejs_target(const char *version) {
+  }
 
-#ifdef IS_WINDOWS /* fetch node.lib */
-  run("curl -sSL \"https://nodejs.org/dist/%s/win-x64/node.lib\" -o "
-      "\"targets/node-%s/node.lib\"",
-      version, version);
-#endif
-}
-
-/* Downloads headers, creates folders */
-void prepare() {
-    /* see console output IMMEDIATELY for debugging purposes */
-    setbuf(stdout, 0);
-    run("mkdir tmp");
-    for (unsigned int i = 0; i < versionsQuantity; i++) {
-      run("mkdir \"tmp/c-%s\"", versions[i].abi);
-    }
-    if (run("mkdir targets")) {
-      printf("[NodeJS headers are already installed (v22,v24,v26)]\n");
-      return ;
-    }
-
+void setup_nodejs_targets() {
+    if(run("mkdir \"targets\"")) {
+      printf("[NodeJS headers v22,v24,v26 are already installed]\n");
+      return;
+    };
     printf("\n<-- [Installing NodeJS headers] -->\n");
+
     START_FOREACH_NODEJS(i);
-      nodejs_headers(versions[i].name);
+      const char* version = versions[i].name;
+      run("curl -sSL \"https://nodejs.org/dist/%s/node-%s-headers.tar.gz\" -o targets/node-%s-headers.tar.gz"
+        " && "
+        "tar xzf targets/node-%s-headers.tar.gz -C targets"
+        " && "
+        "rm targets/node-%s-headers.tar.gz",
+        version, version, version, version, version);
+      run(
+        /*fetch v8 fast-api manually*/
+        "curl -sSfL"
+        " \"https://raw.githubusercontent.com/nodejs/node/%s/deps/v8/include/v8-fast-api-calls.h\""
+        " -o \"targets/node-%s/include/node/v8-fast-api-calls.h\"",
+        version, version);
+
+      #ifdef IS_WINDOWS /* fetch node.lib */
+        run("curl -sSL \"https://nodejs.org/dist/%s/win-x64/node.lib\""
+            " -o \"targets/node-%s/node.lib\"",
+            version, version);
+      #endif
+          run("mkdir \"targets/node-%s/c-deps\"", version);
     END_FOREACH_NODEJS;
+
     printf("[Fetched NodeJS headers v22,v24,v26]\n");
 }
 
@@ -127,12 +122,12 @@ void build_uSockets_and_PCH() {
 #endif
 
   START_FOREACH_NODEJS(i);
-  run("cd tmp/c-%s && " C_COMPILER SHARED_MACRO UNIX_MACRO OPT_FLAGS SHARED_INCLUDE("../../", "%s")
-      " -c ../../uWebSockets/uSockets/src/*.c "
-      " ../../uWebSockets/uSockets/src/eventing/*.c "
-      " ../../uWebSockets/uSockets/src/crypto/*.c",
+  run("cd targets/node-%s/c-deps && " C_COMPILER SHARED_MACRO UNIX_MACRO OPT_FLAGS SHARED_INCLUDE("../../../", "%s")
+      " -c ../../../uWebSockets/uSockets/src/*.c "
+      " ../../../uWebSockets/uSockets/src/eventing/*.c "
+      " ../../../uWebSockets/uSockets/src/crypto/*.c",
 
-      versions[i].abi, versions[i].name);
+      versions[i].name, versions[i].name);
 
   run(CXX_COMPILER SHARED_MACRO UNIX_MACRO OPT_FLAGS SHARED_INCLUDE("./", "%s")
         "-std=c++20 -c src/pch.hpp -o targets/node-%s/pch.hpp.pch",
@@ -181,10 +176,10 @@ void build(char *special_options) {
         STATIC_LIB("uWebSockets/uSockets/boringssl/libssl")
         STATIC_LIB("uWebSockets/uSockets/boringssl/libcrypto")
         STATIC_LIB("uWebSockets/uSockets/lsquic/src/liblsquic/liblsquic")
-        " -shared %s ./tmp/c-%s/*.o src/addon.cpp -o dist/uws_%s_%s_%s.node",
+        " -shared %s ./targets/node-%s/c-deps/*.o src/addon.cpp -o dist/uws_%s_%s_%s.node",
 
         versions[i].name, versions[i].name,
-        special_options, versions[i].abi, OS, ARCH, versions[i].abi);
+        special_options, versions[i].name, OS, ARCH, versions[i].abi);
   END_FOREACH_NODEJS;
 
   printf("\n[Finished building uWebSockets.js]\n");
@@ -196,12 +191,15 @@ void build(char *special_options) {
 }
 
 int main(int argc, const char* argv[]) {
+    /* see console output IMMEDIATELY for debugging purposes */
+    setbuf(stdout, 0);
+
     threads_quantity = get_cpu_count();
     printf("<-- ENTRY POINT!!! -->\n[Parallel threads available: %i]\n", threads_quantity);
     
   if(argc == 1 || argc > 1 && !strcmp(argv[1], "deps")) {
     printf("<--[Fetching + Compiling dependencies]-->\n");
-    prepare();
+    setup_nodejs_targets();
     /* for MacOS we compile one architecture at a time */
     build_boringssl();
     build_lsquic();

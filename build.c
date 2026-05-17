@@ -1,7 +1,4 @@
 #include "build.h"
-void setup_single_nodejs_target(const char *version) {
-  }
-
 void setup_nodejs_targets() {
     if(run("mkdir \"targets\"")) {
       printf("[NodeJS headers v22,v24,v26 are already installed]\n");
@@ -53,8 +50,8 @@ void build_lsquic() {
     run("curl -sSOL https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz");
     run("tar xzf zlib-1.3.1.tar.gz");
 #define MACRO " -DCMAKE_C_FLAGS=\"/Wv:18 /DWIN32 /wd4201 /I..\\..\\..\\zlib-1.3.1\"" \
-    " -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl" \
-    " -DZLIB_INCLUDE_DIR=../../../zlib-1.3.1" \
+    " -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++" \
+    " -DZLIB_INCLUDE_DIR=..\\..\\..\\zlib-1.3.1" \
     " -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded "
 #endif
 
@@ -161,10 +158,10 @@ void build(char *special_options) {
 
 #if !defined(IS_WINDOWS)
 #define UNIX_MACRO " -pthread -fPIC "
-#define STATIC_LIB(lib) lib ".a "
+#define STATIC_LIB(path, name) " " path "/lib" name ".a "
 #else 
 #define UNIX_MACRO ""
-#define STATIC_LIB(lib) " ./" lib ".lib "
+#define STATIC_LIB(path, name) " ./" path "/" name ".lib "
 #endif
 
 /* Build for Unix systems */
@@ -173,9 +170,9 @@ void build(char *special_options) {
         UNIX_MACRO
         " -std=c++20 "
         " -include-pch targets/node-%s/pch.hpp.pch "
-        STATIC_LIB("uWebSockets/uSockets/boringssl/libssl")
-        STATIC_LIB("uWebSockets/uSockets/boringssl/libcrypto")
-        STATIC_LIB("uWebSockets/uSockets/lsquic/src/liblsquic/liblsquic")
+        STATIC_LIB("uWebSockets/uSockets/boringssl", "ssl")
+        STATIC_LIB("uWebSockets/uSockets/boringssl", "crypto")
+        STATIC_LIB("uWebSockets/uSockets/lsquic/src/liblsquic", "lsquic")
         " -shared %s ./targets/node-%s/c-deps/*.o src/addon.cpp -o dist/uws_%s_%s_%s.node",
 
         versions[i].name, versions[i].name,

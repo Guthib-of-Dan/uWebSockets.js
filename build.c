@@ -37,8 +37,9 @@ void build_lsquic() {
     
 #if defined(IS_LINUX)
 #define MACRO " "
+#define BUILD_SYSTEM "ninja -j%i lsquic"
 #elif defined (IS_MACOS)
-
+#define BUILD_SYSTEM "ninja -j%i lsquic"
 #if defined(CROSS_COMPILE_MACOS)
 #define MACRO " -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_OSX_ARCHITECTURES=x86_64 "
 #else
@@ -53,6 +54,7 @@ void build_lsquic() {
     " -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++" \
     " -DZLIB_INCLUDE_DIR=..\\..\\..\\zlib-1.3.1" \
     " -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded "
+#define BUILD_SYSTEM "msbuild /m%i ALL_BUILD.vcxproj"
 #endif
 
   run("cd uWebSockets/uSockets/lsquic &&"
@@ -61,9 +63,11 @@ void build_lsquic() {
       " -DBORINGSSL_DIR=../boringssl"
       " -DCMAKE_BUILD_TYPE=Release"
       " -DLSQUIC_BIN=Off"
-      " && ninja -j%i lsquic", threads_quantity);
+      " && " BUILD_SYSTEM, threads_quantity);
   printf("\n[Finished building lsquic]\n");
+
 #undef MACRO
+#undef BUILD_SYSTEM
 }
 
 void build_boringssl() {

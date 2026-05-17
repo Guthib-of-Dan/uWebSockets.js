@@ -54,7 +54,7 @@ void build_lsquic() {
     " -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++" \
     " -DZLIB_INCLUDE_DIR=..\\..\\..\\zlib-1.3.1" \
     " -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded "
-#define BUILD_SYSTEM " && msbuild /m%i ALL_BUILD.vcxproj"
+#define BUILD_SYSTEM " && msbuild ALL_BUILD.vcxproj"
 #endif
 
   run("cd uWebSockets/uSockets/lsquic &&"
